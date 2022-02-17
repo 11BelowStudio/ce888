@@ -5,8 +5,9 @@
       <sourceFolder url="file://$MODULE_DIR$/labs" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/project" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
+      <excludeFolder url="file://$MODULE_DIR$/venv38" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (ce888)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.8" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
