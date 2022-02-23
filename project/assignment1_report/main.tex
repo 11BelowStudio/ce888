@@ -13,7 +13,7 @@
 
 
 \title{Your Title goes here}
-
+\author{2100816}
 \begin{document}
 \maketitle
 
@@ -22,7 +22,7 @@
     \begin{tabular}{ll}
         Registration number: & \textcolor{red}{2100816}\\
         Project: & \textcolor{red}{Causal inference}\\
-        Link to GitHub: & \url{http:}\\
+        Link to GitHub: & \url{https://github.com/11BelowStudio/ce888}\\
     \end{tabular}
 \end{table}
 
@@ -66,6 +66,50 @@ Instructions on what to include in each section are given in the assignment desc
 
 \section{Data}
 
+This project involves two datasets: IHDP\cite{Gross1993}\cite{BROOKSGUNN1992350} and JOBS\cite{JOBS_LaLonde}.
+
+\subsection{IHDP - The Infant Health Development Program}
+
+* premature infants
+
+* x: measurements taken when the kid was born, along with info about the home situation/what the mother was doing during pregnancy
+
+* y: IQ test results
+
+This dataset contains factual and counterfactual data.
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+\caption{\label{fig:ihdpgraphs}Several graphs for the IHDP dataset}
+\end{figure}
+
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width=1\textwidth]{project/data/ihdp_heatmap.pdf}
+\caption{\label{fig:ihdp_correlation}Correlation heatmap for the IHDP dataset}
+\end{figure}
+
+
+
+\subsection{JOBS}
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width=1\textwidth]{project/data/jobs_graphs.pdf}
+\caption{\label{fig:jobsgraphs}Several graphs for the JOBS dataset}
+\end{figure}
+
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width=1\textwidth]{project/data/jobs_heatmap.pdf}
+\caption{\label{fig:jobs_correlation}Correlation heatmap for the JOBS dataset}
+\end{figure}
+
+
+
 If you have only one dataset to work on, there is no need to add subsections to this section.
 Otherwise, simply use the subsection command as shown in the tutorial below to create
 separate subsections for each of the datasets.
@@ -99,7 +143,7 @@ This section is only for you to learn how to write in LateX. Delete it after rea
 First you have to upload the image file from your computer using the upload link in the file-tree menu.
 Then use the include graphics command to include it in your document.
 Use the figure environment and the caption command to add a number and a caption to your figure.
-ee the code for Figure \ref{fig:frog} in this section for an example. Include the code for figures
+See the code for Figure \ref{fig:frog} in this section for an example. Include the code for figures
 and tables directly after the paragraph where you reference them.
 
 \begin{figure}[tb]
