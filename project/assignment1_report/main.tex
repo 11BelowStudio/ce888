@@ -10,6 +10,7 @@
 \usepackage{graphicx}
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{color}
+\usepackage{minted}
 
 
 \title{Your Title goes here}
@@ -76,12 +77,30 @@ This project involves two datasets: IHDP\cite{Gross1993}\cite{BROOKSGUNN1992350}
 
 * y: IQ test results
 
-This dataset contains factual and counterfactual data.
+This dataset concerns a population of 750 individuals, all of whom have 25 X values,
+a 'T' value indicating whether they were in the treatment/control group, as well as
+a factual 'yf' value (indicating the true 'y' value recorded from that individual during
+the experiment), and a counterfactual 'ycf' value (derived via a simulation, simulating
+the outcome for that individual if they were in the opposite treatment/control group
+to the group they actually were in). There is also an 'ite' value, providing the
+individual treatment effect for the individuals. 
+
+Due to the presence of counterfactuals, one could consider this dataset to be balanced,
+however, I shall not be using these in the training process for the investigation.
+Therefore, I shall still need to treat this dataset as unbalanced,
+with a total of 747 individuals; 608 in the control group, 139 in the treatment group.
+
+Of the 25 'x' values, 6 of them are in a continuous range, whilst the other 19 are binary.
+One of these non-binary 'x' values, \texttt{x_3}, appears to be limited to one of four discrete
+values; however, as I have been unable to conclusively find out what \texttt{x_3} truly means,
+and as that means it could possibly have a different value, I shall not normalize that into
+discrete values, to allow leeway for unexpected 
+
 
 \begin{figure}[tb]
 \centering
 \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
-\caption{\label{fig:ihdpgraphs}Several graphs for the IHDP dataset}
+\caption{\label{fig:ihdpgraphs}Several graphs for the IHDP dataset, including counterfactuals}
 \end{figure}
 
 
@@ -120,7 +139,19 @@ Make sure you properly cite the origin of the dataset/s.
 
 \section{Methodology}
 
-Add subsections as needed.
+\subsection{Preparing the learners}
+
+Before starting any training of the machine learners, I shall split the datasets into a learning
+set (to use in training via K-fold cross validation) and a validation set.
+
+Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42.
+
+For the IHDP dataset, due to the rather small size of it, I shall use all of the counterfactual
+data as the validation set, along with ~10\% of the factual data (evenly split between treatment/
+control groups). This will leave the other ~670 individuals in the training set.
+
+For the JOBS dataset, I shall use 20\% of the full data as the validation set, using stratified
+sampling to 
 
 \section{Conclusions}
 
