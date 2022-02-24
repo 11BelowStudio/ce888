@@ -9,3 +9,11 @@ There's nothing much here to look at (like, at all), but that might change
 eventually.
 
 Probably.
+
+If you want assignment 1, please go to project/data/ for the datasets and the code.
+Specifically, the code is in project/data/viewer.ipynb
+At minimum, you will need to have Python 3.8 (or later) and jupyter installed in order
+to run it. When you start running the notebook, it will attempt to install all of the
+other dependencies for you, so you don't need to worry about doing that.
+
+Alternatively, if you want the raw LaTeX files, please go to project/assignment1_report/
