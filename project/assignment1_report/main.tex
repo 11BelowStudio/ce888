@@ -11,12 +11,40 @@
 \usepackage[colorlinks=true, allcolors=blue]{hyperref}
 \usepackage{color}
 \usepackage{minted}
+\usepackage{tikz}
+\usepackage{placeins}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage[numbers]{natbib}
+\usepackage{minted}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{placeins}
+\usepackage{tabularx}
+\usepackage{svg}
 
+\setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
+
+\usepackage[hybrid]{markdown}
+
+% Thanks to leandriis on StackOverflow for this formatting https://tex.stackexchange.com/a/533609
+\usetikzlibrary{positioning,shapes.misc, shapes.geometric, arrows}
+
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{tCircle} = [circle, draw=black, align=center, minimum width=2cm]
+\tikzstyle{tRoundRect} = [rounded rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
+\tikzstyle{tRect} = [rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
 
 \title{Your Title goes here}
 \author{2100816}
 \begin{document}
 \maketitle
+
 
 \begin{table}[h]
     \centering
@@ -67,9 +95,11 @@ Instructions on what to include in each section are given in the assignment desc
 
 \section{Data}
 
-This project involves two datasets: IHDP\cite{Gross1993}\cite{BROOKSGUNN1992350} and JOBS\cite{JOBS_LaLonde}.
+This project involves two datasets: IHDP\cite{Gross1993} \cite{BROOKSGUNN1992350}  and JOBS\cite{JOBS_LaLonde}.
 
 \subsection{IHDP - The Infant Health Development Program}
+
+\FloatBarrier
 
 * premature infants
 
@@ -77,57 +107,106 @@ This project involves two datasets: IHDP\cite{Gross1993}\cite{BROOKSGUNN1992350}
 
 * y: IQ test results
 
-This dataset concerns a population of 750 individuals, all of whom have 25 X values,
-a 'T' value indicating whether they were in the treatment/control group, as well as
-a factual 'yf' value (indicating the true 'y' value recorded from that individual during
-the experiment), and a counterfactual 'ycf' value (derived via a simulation, simulating
-the outcome for that individual if they were in the opposite treatment/control group
-to the group they actually were in). There is also an 'ite' value, providing the
-individual treatment effect for the individuals. 
+This dataset concerns a population of 750 individuals, all of whom have 25 \texttt{x} values,
+a \texttt{t} value indicating whether they were in the treatment/control group, as well as
+a factual \texttt{yf} value (indicating the true \texttt{y} value recorded from that individual
+during the experiment), and a counterfactual \texttt{ycf} value (derived via a simulation,
+simulating the outcome for that individual if they were in the opposite treatment/control group to
+the group they actually were in). There is also an \texttt{ite} value, providing the individual
+treatment effect for the individuals. The \texttt{y} values are continuous values.
 
 Due to the presence of counterfactuals, one could consider this dataset to be balanced,
 however, I shall not be using these in the training process for the investigation.
 Therefore, I shall still need to treat this dataset as unbalanced,
 with a total of 747 individuals; 608 in the control group, 139 in the treatment group.
 
+A visualization of this dataset can be seen in \ref{fig:ihdpgraphs} (along with an overview
+of the factual data within \ref{fig:ihdpfact}, and of the counterfactual data within \ref{fig:ihdpcf}).
+
+
 Of the 25 'x' values, 6 of them are in a continuous range, whilst the other 19 are binary.
-One of these non-binary 'x' values, \texttt{x_3}, appears to be limited to one of four discrete
-values; however, as I have been unable to conclusively find out what \texttt{x_3} truly means,
+One of these non-binary 'x' values, \texttt{x3} , appears to be limited to one of four discrete
+values; however, as I have been unable to conclusively find out what \texttt{x3} truly means,
 and as that means it could possibly have a different value, I shall not normalize that into
-discrete values, to allow leeway for unexpected 
+discrete values, to allow leeway for potential future data, which may have a different value.
 
 
-\begin{figure}[tb]
+\begin{figure}[ht]
 \centering
-\includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
-\caption{\label{fig:ihdpgraphs}Several graphs for the IHDP dataset, including counterfactuals}
+    \includegraphics[width=1\textwidth]{project/data/ihdp_heatmap.pdf}
+    \caption{
+        \label{fig:ihdp_correlation}Correlation heatmap for the IHDP dataset
+    }
+    \small{
+        This annotated heatmap shows the correlation coefficients for the values in each
+        column of the IHDP dataset (along with additional \texttt{t0} and \texttt{t1} columns). 
+        \texttt{t0} contains the \texttt{y} values for each individual for the case
+        where \texttt{t=0}, and vice versa for \texttt{t1} (with these columns being included
+        for ease of looking at overall treatment/control outcomes).
+    }
 \end{figure}
 
+Looking at \ref{fig:ihdp_correlation}, we can see that there isn't much clear correlation
+between the values of each column in the IHDP dataset, barring a few outliers.
 
-\begin{figure}[tb]
-\centering
-\includegraphics[width=1\textwidth]{project/data/ihdp_heatmap.pdf}
-\caption{\label{fig:ihdp_correlation}Correlation heatmap for the IHDP dataset}
-\end{figure}
+There is a rather strong positive correlation between \texttt{t} and \texttt{yf} (with a
+slightly stronger negative \texttt{t}/\texttt{ycf} correlation), indicating that
+being in the treatment group correlates to a higher \texttt{y}, but whether or not this
+is due to causation does need to be investigated further.
+
+Another 'important' correlation needing investigating is the rather strong negative
+correlation between \texttt{x5} and \texttt{ite} (and, in extension,
+\texttt{x5}'s relation to \texttt{t0} and \texttt{t1}), to see if this correlation
+truly indicates whether a higher \texttt{x5} can cause the treatment to have an
+unintended effect. This correlation is also illustrated in \ref{fig:ihdpgraphs},
+showing this strong downward trend. However, looking at the \texttt{x5}
+data in \ref{fig:ihdpfact}, we can see some individuals with high \texttt{x5}
+values in the untreated group achieved rather high \texttt{yf} scores (with a \texttt{x5}
+and \texttt{yf} correlation of 0.5), so one could argue that the negative ITE correlation
+could be due to the counterfactual simulation not allowing similar \texttt{ycf}
+values to be reached.
+
+Other notable correlations include a positive correlation between \texttt{x0} and \texttt{x1}
+(the correlation between having the largest absolute magnitude in this dataset, of 0.85,
+and both having a strong negative correlation to \texttt{x2}), and the rather strong negative
+correlation between \texttt{x3} and \texttt{x13}. These correlations could be a sign of
+causation between them, or they could be an indicator of an external confounder.
+
+\subsubsection{The Causal Questions}
+
+\begin{enumerate}
+\item To what extent does each \texttt{x} predict \texttt{y}?
+\item To what extent does \texttt{t} predict \texttt{y}?
+\item To what extent do the \texttt{x} values predict each other?
+\item To what extent do the \texttt{x} values predict the \texttt{ite} values?
+\end{enumerate}
+
+\subsubsection{Metrics to use}
+
+As this dataset contains full counterfactual/ITE data, I am able to use Precision in
+Estimation of Heterogenous Effect ($\epsilon PEHE$) and Average Treatment Effect ($\epsilon ATE$)
+in order to measure the correctness of the learner's estimations of individual treatment
+effects\cite{CE888_causal}.
+
+
+
+\FloatBarrier
 
 
 
 \subsection{JOBS}
 
-\begin{figure}[tb]
-\centering
-\includegraphics[width=1\textwidth]{project/data/jobs_graphs.pdf}
-\caption{\label{fig:jobsgraphs}Several graphs for the JOBS dataset}
-\end{figure}
+\FloatBarrier
 
-
-\begin{figure}[tb]
+\begin{figure}[ht]
 \centering
 \includegraphics[width=1\textwidth]{project/data/jobs_heatmap.pdf}
 \caption{\label{fig:jobs_correlation}Correlation heatmap for the JOBS dataset}
 \end{figure}
 
 
+
+\FloatBarrier
 
 If you have only one dataset to work on, there is no need to add subsections to this section.
 Otherwise, simply use the subsection command as shown in the tutorial below to create
@@ -141,17 +220,58 @@ Make sure you properly cite the origin of the dataset/s.
 
 \subsection{Preparing the learners}
 
+\FloatBarrier
+
 Before starting any training of the machine learners, I shall split the datasets into a learning
 set (to use in training via K-fold cross validation) and a validation set.
 
 Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42.
 
-For the IHDP dataset, due to the rather small size of it, I shall use all of the counterfactual
-data as the validation set, along with ~10\% of the factual data (evenly split between treatment/
-control groups). This will leave the other ~670 individuals in the training set.
+For the IHDP dataset, due to the rather small size of it, I shall use all of the counterfactual data as the validation set, along with ~10\% of the factual data (10\% of the treatment/control groups, aiming to stratify based on the ITE counterfactual data), leaving the remaining factual data available for k-fold cross validation training.
 
-For the JOBS dataset, I shall use 20\% of the full data as the validation set, using stratified
-sampling to 
+For the JOBS dataset, I shall use 20\% of the full data as the validation set (20\% of treatment/control, aiming to stratify based on the outcomes), leaving the remaining 80\% for training/testing.
+
+When performing the testing, I shall be using scikit-learn's pipeline API, using pipelines with the structure explained in \ref{fig:pipeline}, for ease of re-running experiments, and allowing me
+to take advantage of scikit-learn's \texttt{GridSearchCV} class, allowing me to experiment with
+various hyper-parameter configurations whilst training the learners using k-fold cross validation.
+In the interests of time, however, I may opt to use \texttt{HalvingGridSearchCV}, but the end
+result of each process is identical.
+
+\begin{figure}
+    \centering
+    \begin{tikzpicture}
+        \node[tRoundRect] (Start) {Data input};
+        \node[tRect] (QTrans) [below =of Start] {\texttt{QuantileTransformer}} edge [<-] (Start);
+        \node[tRect] (KNNImp) [below =of QTrans] {\texttt{KNNImputer}} edge [<-] (QTrans);
+        \node[tRect] (PCA) [below =of KNNImp] {\texttt{PCA}\\(may test without this)} edge [<-] (KNNImp);
+        \node[tRect] (Learner) [below =of PCA] {The learner being trained} edge [<-] (PCA);
+        \node[tRoundRect] (Output) [below =of Learner] {Data output} edge [<-] (Learner);
+    \end{tikzpicture}
+    \caption{\label{fig:pipeline}Structure for the pipelines to be used for training}
+\end{figure}
+
+\FloatBarrier
+
+\subsection{Simple Learners}
+
+To obtain feature importances, I shall try using a \texttt{RandomForestRegressor},
+and \texttt{ARDRegressor}, and then a \texttt{AdaBoostRegressor}s (of the aforementioned
+other regressors). The \texttt{RandomForestRegressor} is because I would like to
+
+\begin{markdown}
+
+
+To obtain feature importances, I will attempt training a `RandomForestRegressor`,
+an `ARDRegressor`, and a couple of `AdaBoostRegressor`s (consisting of the aforementioned
+other regressors) to predict the `y` outcomes for individuals given their `x` attributes
+and whether or not they have been treated (using `GridSearchCV` to handle hyper-parameter
+optimization). The classification accuracy for this stage shall be assessed via `r2`
+
+\end{markdown}
+
+\subsection{Propensity Score re-weighting}
+
+\subsection{Advanced CATE estimators}
 
 \section{Conclusions}
 
@@ -160,6 +280,92 @@ Should not include subsections.
 From here (included) to line 139, there is a tutorial for you to learn how to add tables,
 figures, create subsections, etc.
 You should delete all of that after reading it, and not submit it as part of your report.
+
+
+\appendix
+\section{Appendix: The visualizations of the datasets}\label{appendix:graphs}
+
+These are located here, in the appendix, as the size of them is too big for \LaTeX to neatly
+insert them within the main content of this report.
+
+\subsection{IHDP dataset visualizations}
+
+
+Here are the graphs for the IHDP dataset.
+
+\FloatBarrier
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+    \caption{
+        \label{fig:ihdpgraphs}Several graphs for the IHDP dataset, including counterfactuals
+    }
+\end{figure}
+
+These graphs show how the \texttt{ite} values (along with \texttt{t0} and \texttt{t1})
+vary for each individual, based on the value of each \texttt{x} variable for each individual. \texttt{t0}, \texttt{t1}, and \texttt{ite} are based on known counterfactual
+data (end result being that \texttt{t0} contains the \texttt{y} value for the case where
+the individual was in the control group, and vice versa for \texttt{t1}).
+
+Looking at the density/regression plot between \texttt{t0} and \texttt{t1}, 
+we can see a general improvement in the \texttt{y} scores for the population when
+receiving the treatment, with few individuals falling below the \texttt{y=x diagonal}
+line (these individuals being those who had a negative \texttt{ite}).
+
+We can see a somewhat clear negative correlation between \texttt{x5} and \texttt{ite},
+and we can also see that, for several of the binary-valued \texttt{x} values,
+there is a rather large imbalance in the quantities of individuals in the dataset
+who have each value, which could limit the amount of useful information we could
+potentially gain from these variables.
+
+\FloatBarrier
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+    \caption{
+        \label{fig:ihdpfact}Graphs for the factual data in IHDP
+    }
+
+\end{figure}
+
+These graphs are of the factual data (\texttt{yf}) within the IHDP dataset.
+These do illustrate the general positive correlation between individuals receiving
+treatment and having a higher \texttt{yf} value, but also shows how imbalanced
+this dataset is (most notably with \texttt{x17}, where only 27 individuals have
+\texttt{x17==0}.
+        
+These graphs clearly illustrate that the treated individuals generally have higher
+\texttt{yf} values than their untreated peers, with roughly similar interquartile
+ranges for treatment/control groups with different values for each binary
+\texttt{x} value (even in the extremely unbalanced cases).
+
+\FloatBarrier
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+    \caption{\label{fig:ihdpcf}Graphs for the counterfactual data in IHDP}
+\end{figure}
+
+\FloatBarrier
+
+\subsection{JOBS dataset visualizations}
+
+
+Here are the graphs for the JOBS dataset.
+
+\FloatBarrier
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\textwidth]{project/data/jobs_graphs.pdf}
+\caption{\label{fig:jobsgraphs}Several graphs for the JOBS dataset}
+\end{figure}
+
+\FloatBarrier
+
 
 \section{Latex Tutorial}
 \label{sec:tutorial}
