@@ -29,7 +29,28 @@
 
 \setkeys{Gin}{width=\linewidth,totalheight=\textheight,keepaspectratio}
 
-\usepackage[hybrid]{markdown}
+% Credit to Steven B. Segletes on StackExchange
+% https://tex.stackexchange.com/a/265804
+
+\usepackage[most]{tcolorbox}
+\definecolor{block-gray}{gray}{0.85}
+\newtcolorbox{myquote}{colback=block-gray,grow to right by=-10mm,grow to left by=-10mm, boxrule=0pt,boxsep=0pt,breakable}
+\makeatletter
+\def\quoteparse{\@ifnextchar`{\quotex}{\singlequote}}
+\def\quotex#1{\@ifnextchar`{\triplequote\@gobble}{\doublequote}}
+\makeatother
+\def\singlequote#1`{\texttt{#1}\quoteON}
+\def\doublequote#1``{\texttt{#1}\quoteON}
+\long\def\triplequote#1```{\begin{myquote}\parskip 1ex#1\end{myquote}\quoteON}
+\def\quoteON{\catcode``=\active}
+\def\quoteOFF{\catcode``=12}
+\quoteON
+\def`{\quoteOFF \quoteparse}
+\quoteOFF
+
+
+
+\usepackage[outputDir=project/assingment1report,citations,hybrid]{markdown}
 
 % Thanks to leandriis on StackOverflow for this formatting https://tex.stackexchange.com/a/533609
 \usetikzlibrary{positioning,shapes.misc, shapes.geometric, arrows}
@@ -44,7 +65,7 @@
 \author{2100816}
 \begin{document}
 \maketitle
-
+\quoteON
 
 \begin{table}[h]
     \centering
@@ -225,7 +246,8 @@ Make sure you properly cite the origin of the dataset/s.
 Before starting any training of the machine learners, I shall split the datasets into a learning
 set (to use in training via K-fold cross validation) and a validation set.
 
-Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42.
+Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42 for the
+notebook, allowing reproducable results.
 
 For the IHDP dataset, due to the rather small size of it, I shall use all of the counterfactual data as the validation set, along with ~10\% of the factual data (10\% of the treatment/control groups, aiming to stratify based on the ITE counterfactual data), leaving the remaining factual data available for k-fold cross validation training.
 
@@ -254,24 +276,67 @@ result of each process is identical.
 
 \subsection{Simple Learners}
 
-To obtain feature importances, I shall try using a \texttt{RandomForestRegressor},
-and \texttt{ARDRegressor}, and then a \texttt{AdaBoostRegressor}s (of the aforementioned
-other regressors). The \texttt{RandomForestRegressor} is because I would like to
-
-\begin{markdown}
-
+\quoteON
 
 To obtain feature importances, I will attempt training a `RandomForestRegressor`,
 an `ARDRegressor`, and a couple of `AdaBoostRegressor`s (consisting of the aforementioned
 other regressors) to predict the `y` outcomes for individuals given their `x` attributes
 and whether or not they have been treated (using `GridSearchCV` to handle hyper-parameter
-optimization). The classification accuracy for this stage shall be assessed via `r2`
+optimization). The `RandomForestRegressor` shall be used due to how it conveniently provides a method for returning feature importances @\cite{sklearnensembleRandomForestRegressorscikitlearn102documentation}.
+Obtaining these importances is slightly
+more convoluted with the `ARDRegressor`, however, there is a workaround to obtaining these.
+Despite the necessity of this workaround, the `ARDRegressor`, being a Relevance Vector Machine,
+aims to perform regression by trying to weight the inputs based on evidence maximization,
+in turn indirectly providing feature importances, without relying as much on a random seed.
+\cite{Fletcher10relevancevector}\cite{sklearnlinearmodelARDRegressionscikitlearn102documentation}
+The `AdaBoostRegressor` is an extension of these; effectively applying multiple instances of
+the same regressor to the problem, weighting each one appropriately to catch the cases which
+were missed by the previous regressors within the ensemble.
+\cite{sklearnensembleAdaBoostRegressorscikitlearn102documentation}
 
-\end{markdown}
+The classification accuracy for this stage shall be assessed via `r2` scores,
+comparing the predicted `y` for the individual (from their `x` and `t`) to the factual `y` value.
+`r2` has been chosen due to how it provides a clear indicator of how good the estimator is compared
+to returning the expected `y` value (on top of how close the estimator is to returning 'true' `y`
+values), clearly indicating how good the predictions are.
+\cite{sklearnmetricsr2scorescikitlearn102documentation}
+
+Due to the `Jobs` dataset having `y` values of 0 and 1 only, I may instead approach it
+as a classification problem rather than a regression problem. In this case, I would
+use the 'Classifier' variants of the RandomForest and AdaBoost ensembles, but would
+use a `LogisticRegression` learner instead of an `ARDRegressor` (as no classification
+alternative to `ARDRegressor` exists)
+\cite{sklearnlinearmodelLogisticRegressionscikitlearn102documentation}.
+Furthermore, I would use the cross-entropy loss instead of r2 loss,
+as cross-entropy still provides a clear indication of how close the classifier is to being
+'perfect', and provides stronger penalties for inaccuracy as they get more inaccurate.
+\cite{sklearnmetricsloglossscikitlearn102documentation}.
 
 \subsection{Propensity Score re-weighting}
 
+\quoteON
+
+Similar to the 'Simple Learners' stage, I shall try using the identified classification models
+to predict propensity scores for each dataset (by aiming to predict `t` given `x`), and then
+using the identified 'best' classifier to predict what class they will be in (and giving that
+to the Inverse Propensity Score function to produce the actual sample weights).
+Unfortunately, due to the `ARDRegressor` not supporting sample weights, I will need
+to replace it with a standard `BayesianRidge` regressor for this, but it has a similar end result
+\cite{sklearnlinearmodelBayesianRidgescikitlearn102documentation}.
+
+I will then repeat the process outlined in 'Simple Learners' with these weighted models,
+and compare the results of the learners with weighted samples to the performance of the
+unweighted learners. 
+
 \subsection{Advanced CATE estimators}
+
+\quoteON
+
+I shall attempt to compare the performances of the 
+`XLearner`\cite{econmlmetalearnersXLearnereconml0130documentation},
+`CausalForestDML`\cite{econmldmlCausalForestDMLeconml0130documentation},
+and `ForestDRLearner`\cite{econmldrForestDRLearnereconml0130documentation}
+CATE models, implemented as part of EconML\cite{econml}.
 
 \section{Conclusions}
 
@@ -323,7 +388,7 @@ potentially gain from these variables.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+    \includegraphics[width=1\textwidth]{project/data/ihdp_factuals.pdf}
     \caption{
         \label{fig:ihdpfact}Graphs for the factual data in IHDP
     }
@@ -345,7 +410,7 @@ ranges for treatment/control groups with different values for each binary
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
+    \includegraphics[width=1\textwidth]{project/data/ihdp_counterfactuals.pdf}
     \caption{\label{fig:ihdpcf}Graphs for the counterfactual data in IHDP}
 \end{figure}
 
@@ -437,7 +502,7 @@ denote their mean. Then as $n$ approaches infinity, the random variables $\sqrt{
 
 \subsection{How to add Citations and a References List}
 
-You can simply upload a \verb|.bib| file containing your BibTeX entries, created with a tool such as JabRef. You can then cite entries from it, like this: \cite{greenwade93}. Just remember to specify a bibliography style, as well as the filename of the \verb|.bib|. You can find a \href{https://www.overleaf.com/help/97-how-to-include-a-bibliography-using-bibtex}{video tutorial here} to learn more about BibTeX.
+You can simply upload a \verb|.bib| file containing your BibTeX entries, created with a tool such as JabRef. You can then cite entries from it, like this: Just remember to specify a bibliography style, as well as the filename of the \verb|.bib|. You can find a \href{https://www.overleaf.com/help/97-how-to-include-a-bibliography-using-bibtex}{video tutorial here} to learn more about BibTeX.
 
 
 \bibliographystyle{abbrv}
