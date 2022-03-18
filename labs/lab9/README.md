@@ -7,7 +7,9 @@
 
 ## Lab Exercises
 
-- [ ] Create a folder called lab9
-- [ ] Open advanced_transfer_learning.ipynb in Colab and go through the code, filling the bits that you're prompted to fill.
-- [ ] Open the quiz on Moodle. You'll have to copy some printouts from the noteboook and upload some of the files that are generated as you train your networks.
-- [ ] After you're done, make sure you save your version of the notebook in your lab9 folder in Github!
+- [x] Create a folder called lab9
+- [x] Open advanced_transfer_learning.ipynb in Colab and go through the code, filling the bits that you're prompted to fill.
+- [x] Open the quiz on Moodle. You'll have to copy some printouts from the noteboook and upload some of the files that are generated as you train your networks.
+- [x] After you're done, make sure you save your version of the notebook in your lab9 folder in Github!
+
+note: couldn't upload the 'vgg16_model_featureExtraction.h5' file, 3big5git
