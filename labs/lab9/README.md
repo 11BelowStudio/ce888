@@ -12,4 +12,4 @@
 - [x] Open the quiz on Moodle. You'll have to copy some printouts from the noteboook and upload some of the files that are generated as you train your networks.
 - [x] After you're done, make sure you save your version of the notebook in your lab9 folder in Github!
 
-note: couldn't upload the 'vgg16_model_featureExtraction.h5' file, 3big5git
+note: couldn't upload the 'vgg16_model_featureExtraction.h5' or 'vgg_model_fineTuning.h5' files, 3big5git
