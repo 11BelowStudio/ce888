@@ -373,11 +373,16 @@ set (to use in training via K-fold cross validation) and a validation set.
 Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42 for the
 notebook, allowing reproducible results.
 
-I shall use all of the counterfactual data of `IHDP`, along with ~10\% of the factual data (aiming to stratify based on treatment/control and the ITE counterfactual data) as its validation set, leaving the remaining factual data available for k-fold cross validation training.
+I shall use all of the counterfactual data of `IHDP`, along with ~10\% of the factual data
+(aiming to stratify based on treatment/control and the ITE counterfactual data) as its validation set,
+leaving the remaining factual data available for k-fold cross validation training.
 
-For the JOBS dataset, I shall use 20\% of the full data as the validation set (20\% of treatment/control, aiming to stratify based on the outcomes), leaving the remaining 80\% for training/testing.
+For the JOBS dataset, I shall use 20\% of the full data as the validation set (20\% of treatment/control,
+aiming to stratify based on the outcomes), leaving the remaining 80\% for training/testing.
 
-When performing the testing, I shall be using scikit-learn's pipeline API, using pipelines with the structure explained in \ref{fig:pipeline}, for ease of re-running experiments, and using `GridSearchCV` to perform hyper-parameter tuning during K-fold training.
+When performing the testing, I shall be using scikit-learn's pipeline API, using pipelines with the structure
+explained in \ref{fig:pipeline}, for ease of re-running experiments, and using `GridSearchCV`
+to perform hyper-parameter tuning during K-fold training.
 
 \begin{figure}[htb]
     \centering
@@ -401,7 +406,8 @@ To obtain feature importances, I will attempt training a `RandomForestRegressor`
 an `ARDRegressor`, and a couple of `AdaBoostRegressor`s (consisting of the aforementioned
 other regressors) to predict the `y` outcomes for individuals given their `x` attributes
 and whether or not they have been treated (using `GridSearchCV` to handle hyper-parameter
-optimization). The `RandomForestRegressor` shall be used due to how it conveniently provides a method for returning feature importances @\cite{sklearnensembleRandomForestRegressorscikitlearn102documentation}.
+optimization). The `RandomForestRegressor` shall be used due to how it conveniently provides a
+method for returning feature importances @\cite{sklearnensembleRandomForestRegressorscikitlearn102documentation}.
 Obtaining these importances is slightly
 more convoluted with the `ARDRegressor`, however, there is a workaround to obtaining these.
 Despite the necessity of this workaround, the `ARDRegressor`, being a Relevance Vector Machine,
