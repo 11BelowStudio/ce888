@@ -659,6 +659,9 @@ class DataframeManager:
     e_column: str
     "name of E (is individual from experiment group or control group?) column"
 
+    ipsw_column: str
+    "inverse propensity score weighting column name"
+
     @classmethod
     def make(
             cls,
@@ -675,7 +678,8 @@ class DataframeManager:
             ycf_column: Optional[str] = None,
             t0_column: Optional[str] = None,
             t1_column: Optional[str] = None,
-            ite_column: Optional[str] = None
+            ite_column: Optional[str] = None,
+            ipsw_column: str = "ipsw"
     ) -> "DataframeManager":
         """
 
@@ -693,6 +697,7 @@ class DataframeManager:
         :param t0_column:
         :param t1_column:
         :param ite_column:
+        :param ipsw_column:
         :return:
         """
 
@@ -722,7 +727,8 @@ class DataframeManager:
             t0_column=t0_column,
             t1_column=t1_column,
             ite_column=ite_column,
-            e_column=e_column
+            e_column=e_column,
+            ipsw_column=ipsw_column
         )
 
     @cached_property
@@ -1004,6 +1010,30 @@ class DataframeManager:
         """
         return self.x_data(train, x_columns=[self.e_column], copy=copy)
 
+    def get_ipsw(
+            self,
+            train: Optional[
+                Union[
+                    bool,
+                    pd.DataFrame
+                ]
+            ],
+            copy: bool = True
+    ) -> pd.DataFrame:
+        """
+        attempts to return IPSW column data (if exists)
+        :param train: should we use the training set, the test set, or the full data?
+            if a dataframe, just use that dataframe.
+            if None, use the full dataframe.
+            if true, return data from the training set indices.
+            if false, return data from the test set indices.
+        :param copy: do we want a copy of the dataset?
+        :return: the appropriate dataframe but only the e column of it.
+        """
+        if self.ipsw_column not in self._full_dataframe.columns:
+            raise ValueError(f"There is no {self.ipsw_column} (IPSW scores) column in the dataframe!")
+        return self.x_data(train, x_columns=[self.ipsw_column], copy=copy)
+
     def x_y(
             self,
             train: Optional[bool],
@@ -1176,4 +1206,11 @@ class DataframeManager:
         assert isinstance(loaded, DataframeManager)
 
         return loaded
+
+    def record_ipsw_info(
+            self,
+            ipws_data: np.ndarray
+    ) -> NoReturn:
+
+        self._full_dataframe[self.ipsw_column] = ipws_data
 

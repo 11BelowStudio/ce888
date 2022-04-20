@@ -555,7 +555,6 @@ class SimpleHalvingGridSearchResults:
         _pehe: Optional[float] = None
 
         _abs_att: Optional[float] = None
-        _sq_att : Optional[float] = None
 
         _policy_risk: Optional[float] = None
 
@@ -631,8 +630,6 @@ class SimpleHalvingGridSearchResults:
             t1_column=t1_column,
             ite_column=ite_column
         )
-
-
 
 def fallback_w_h_calc(split_this: int) -> Tuple[int, int]:
     h = np.floor(np.sqrt(split_this))
@@ -768,17 +765,17 @@ def simple_halving_grid_searcher(
 
 #%%
 def simple_nested_halving_grid_searcher(
-        estimator: EST,
-        param_grid: Dict[str, List[Any]],
-        df_m: df_utils.DataframeManager,
-        df_selection: df_utils.DatasetEnum,
-        learner_name: str,
-        kfold_splits: int = 10,
-        stratify_on: Iterable[str] = tuple("t"),
-        sample_weights: Optional[np.ndarray] = None,
-        nested_rng_generator: RNG = None,
-        resource: str = "n_samples",
-        resource_param_values: Optional[Iterable[int]] = None,
+    estimator: EST,
+    param_grid: Dict[str, List[Any]],
+    df_m: df_utils.DataframeManager,
+    df_selection: df_utils.DatasetEnum,
+    learner_name: str,
+    kfold_splits: int = 10,
+    stratify_on: Iterable[str] = tuple("t"),
+    sample_weights: Optional[np.ndarray] = None,
+    nested_rng_generator: RNG = None,
+    resource: str = "n_samples",
+    resource_param_values: Optional[Iterable[int]] = None,
 ) -> List[SimpleHalvingGridSearchResults]:
     """
 
@@ -813,7 +810,6 @@ def simple_nested_halving_grid_searcher(
 
     child_splits: int = max(1, kfold_splits-1)
     child_kf: Union[KFold, Iterable[Tuple[np.ndarray, np.ndarray]]] = KFold(n_splits=child_splits, shuffle=False)
-
 
     the_splits: Iterable[Tuple[T_INDEX, T_INDEX]] = df_m.get_kfold_indices(
         train=True,
