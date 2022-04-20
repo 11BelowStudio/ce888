@@ -10,7 +10,7 @@ import numpy as np
 
 import os
 
-from typing import List, Tuple, TextIO, Dict, Iterable, Iterator, Union, Optional, Literal, NoReturn, TypeVar
+from typing import List, Tuple, TextIO, Dict, Iterable, Iterator, Union, Optional, Literal, NoReturn, TypeVar, Any
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
 
 from pandas.core.indexes.base import Index
@@ -19,7 +19,7 @@ import doctest
 import sys
 
 import dataclasses
-from functools import cache
+from functools import cached_property
 
 from itertools import chain
 
@@ -27,51 +27,13 @@ from enum import Enum, auto
 
 import pickle
 
-T = TypeVar("T")
-"a generic type"
+
+from seed_utils import *
+
+from misc_utils import *
 
 T_INDEX = Union[np.ndarray, Index]
 "type alias for potential datatypes that could be used to obtain data from the dataframe by index"
-
-RNG = Optional[
-                Union[
-                    int,
-                    np.random.RandomState
-                ]
-            ]
-"type alias for the randomstate parameter taken by a bunch of sklearn things"
-
-
-def chain_1(
-        the_iter: Iterable[T],
-        add_this: T
-) -> Iterator[T]:
-    """
-    shortcut for appending the singular 'add this' to the iterable 'the_iter'
-    :param the_iter: iterator of type T
-    :param add_this: the non-iterable thing we want to add to the iterable's iterator
-    :return: itertools.chain(the_iter, [add_this])
-    """
-    return chain(the_iter, [add_this])
-
-
-def iter_is_none(
-        the_iter: Optional[Iterable[Union[T, None]]]
-) -> bool:
-    """
-    shortcut for seeing if an iterator is actually None or is empty
-    :param the_iter: an iterable that may or may not contain stuff/exist
-    :return: true if 'the_iter' is None, empty, or only contains Nones
-    """
-    return (
-                   the_iter is None
-           ) or (
-               not any(
-                   i is not None
-                   for i in the_iter
-               )
-           )
-
 
 """
 STUFF THAT'S USED WHEN CHECKING IMPORTS
@@ -257,8 +219,8 @@ def process_counterfactuals(
         new_counterfactual_t: str = "tcf",
         y_counterfactual: Optional[str] = None,
         ite: Optional[str] = None,
-        t0_name: str = "t0",
-        t1_name: str = "t1"
+        t0_name: Optional[str] = "t0",
+        t1_name: Optional[str] = "t1"
 ) -> pd.DataFrame:
     """
     Processes the counterfactual info in the dataframe, adding it to the dataframe.
@@ -300,7 +262,7 @@ def process_counterfactuals(
 
 def isolate_these_columns(
         full_dataframe: pd.DataFrame,
-        special_columns: Iterable[str] = ("tcf", "ycf", "ite", "t0", "t1"),
+        special_columns: Iterable[str] = ("e","tcf", "ycf", "ite", "t0", "t1"),
         remove_those_columns: bool = True,
         copy: bool = True
 ) -> pd.DataFrame:
@@ -354,7 +316,7 @@ def isolate_this_column(
     return res
 
 
-def factual_counterfactual_splitter(
+def factual_counterfactual_e_splitter(
         full_dataframe: pd.DataFrame,
         counterfactual_columns: Iterable[str] = ("tcf", "ycf", "ite", "t0", "t1"),
         copy: bool = True
@@ -480,7 +442,7 @@ def dataframes_to_numpy(
 
 def stratified_class_label_maker(
         the_dataframe: pd.DataFrame,
-        columns_to_merge_for_labels: Iterable[str] = ("yf", "t")
+        columns_to_merge_for_labels: Iterable[str] = ("yf", "t", "e")
 ) -> np.ndarray:
     """
     creates an ndarray containing strings that are the stringified values
@@ -503,8 +465,8 @@ def stratified_class_label_maker(
 def train_test_index_maker(
         the_dataframe: pd.DataFrame,
         test_size: float,
-        columns_to_merge_for_labels: Iterable[str] = ("yf", "t"),
-        random_state: RNG = 42
+        columns_to_merge_for_labels: Iterable[str] = ("yf", "t", "e"),
+        random_state: RNG = seed()
 ) -> Tuple[T_INDEX, T_INDEX]:
     """
     attempts to obtain the indices for the [training set, held-out validation set]
@@ -530,6 +492,8 @@ def train_test_index_maker(
 class DatasetEnum(Enum):
     X = auto()
     "represents 'only getting the X data (with no T)' (and y=y ITE)"
+    X_T = auto()
+    "represents x=x, y=t"
     FACTUAL = auto()
     "represents 'getting the x = (x + t factual) and y = y factual' data"
     COUNTERFACTUAL = auto()
@@ -554,12 +518,12 @@ class KFolder(Iterable[Tuple[T_INDEX, T_INDEX]]):
     """
 
     def __init__(
-            self,
-            dataframe_to_kfold: pd.DataFrame,
-            columns_to_stratify_on: Iterable[str] = ("yf", "t"),
-            random_state: RNG = 42,
-            n_splits: int = 10,
-            shuffle: bool = False
+        self,
+        dataframe_to_kfold: pd.DataFrame,
+        columns_to_stratify_on: Iterable[str] = ("yf", "t", "e"),
+        random_state: RNG = seed(),
+        n_splits: int = 10,
+        shuffle: bool = False
     ):
         """
         constructor
@@ -570,20 +534,13 @@ class KFolder(Iterable[Tuple[T_INDEX, T_INDEX]]):
         :param shuffle: are we shuffling this? (set to false if using HalvingGridSearchCV)
         """
 
-        my_kf: StratifiedKFold = StratifiedKFold(
-            n_splits=n_splits,
-            shuffle=shuffle,
-            random_state=random_state
-        )
+        self.random_state = random_state
+        self.shuffle = shuffle
+        self.n_splits = n_splits
 
-        class_labels = stratified_class_label_maker(
+        self.class_labels = stratified_class_label_maker(
             dataframe_to_kfold,
             columns_to_stratify_on
-        )
-
-        self.my_kf_indices: Iterable[Tuple[T_INDEX, T_INDEX]] = my_kf.split(
-            np.zeros_like(class_labels),
-            class_labels
         )
 
     def __iter__(self) -> Iterator[Tuple[T_INDEX, T_INDEX]]:
@@ -592,8 +549,45 @@ class KFolder(Iterable[Tuple[T_INDEX, T_INDEX]]):
         :return: each fold's (train indices, test indices)
         """
         return (
-            (train, test) for train, test in self.my_kf_indices
+            (train, test) for train, test in StratifiedKFold(
+                n_splits=self.n_splits,
+                shuffle=self.shuffle,
+                random_state=self.random_state
+            ).split(
+                np.zeros_like(self.class_labels),
+                self.class_labels
+            )
         )
+
+    def outer_inner_iter(self) -> Iterator[
+        Tuple[
+            Tuple[T_INDEX, T_INDEX],
+            Iterator[Tuple[T_INDEX, T_INDEX]]
+        ]
+    ]:
+        """
+
+        :return: Zip holding [(train fold, test fold), (iter(nested train, test))]
+        """
+        outer: Tuple[Tuple[T_INDEX, T_INDEX]] = tuple(self.__iter__())
+
+        return zip(
+            outer,
+            (
+                (
+                    (tr, te) for tr, te in StratifiedKFold(
+                        n_splits=self.n_splits,
+                        shuffle=self.shuffle,
+                        random_state=self.random_state
+                    ).split(
+                        np.zeros_like(o_train),
+                        self.class_labels[o_train]
+                    )
+
+                ) for o_train, _ in outer
+            )
+        )
+
 
 
 @dataclasses.dataclass(init=T, repr=True, frozen=True, eq=True)
@@ -662,24 +656,51 @@ class DataframeManager:
     ite_column: Optional[str]
     "name of ITE column (if present)"
 
+    e_column: str
+    "name of E (is individual from experiment group or control group?) column"
+
     @classmethod
     def make(
             cls,
             dataset_name: str,
             the_df: pd.DataFrame,
             test_proportion: float,
-            split_randomstate: RNG = 42,
-            columns_for_training_stratification: Iterable[str] = tuple("t"),
+            split_randomstate: RNG = seed(),
+            columns_for_training_stratification: Iterable[str] = ("t", "e"),
             t_column: str = "t",
             t_cf_column: str = "tcf",
             y_column: str = "yf",
+            e_column: str = "e",
+            default_e_if_e_not_present: Any = 1,
             ycf_column: Optional[str] = None,
             t0_column: Optional[str] = None,
             t1_column: Optional[str] = None,
             ite_column: Optional[str] = None
     ) -> "DataframeManager":
+        """
+
+        :param dataset_name:
+        :param the_df:
+        :param test_proportion:
+        :param split_randomstate:
+        :param columns_for_training_stratification:
+        :param t_column:
+        :param t_cf_column:
+        :param y_column:
+        :param e_column:
+        :param default_e_if_e_not_present: what to fill in the E column if there is no E column already in here.
+        :param ycf_column:
+        :param t0_column:
+        :param t1_column:
+        :param ite_column:
+        :return:
+        """
 
         df: pd.DataFrame = the_df.copy()
+
+        if e_column not in the_df.columns:
+            df[e_column] = default_e_if_e_not_present
+            df = turn_01_columns_into_int(df)
 
         train, test = train_test_index_maker(
             df,
@@ -700,19 +721,17 @@ class DataframeManager:
             ycf_column=ycf_column,
             t0_column=t0_column,
             t1_column=t1_column,
-            ite_column=ite_column
+            ite_column=ite_column,
+            e_column=e_column
         )
 
-
-
-
-    @property
+    @cached_property
     def full_dataframe(self) -> pd.DataFrame:
         """:return: a copy of the full dataframe"""
         return self._full_dataframe.copy()
 
-    @cache
-    def get_counterfactual_column_names(self) -> Tuple[str, ...]:
+    @cached_property
+    def counterfactual_columns(self) -> Tuple[str, ...]:
         """:return: names of the non-factual columns"""
         return tuple(
             i for i in (
@@ -725,37 +744,59 @@ class DataframeManager:
         )
 
     @property
-    def counterfactual_columns(self) -> Tuple[str, ...]:
-        return self.get_counterfactual_column_names()
+    def t0_t1_ite_ycf_df_or_none(self) -> Optional[pd.DataFrame]:
+        """
+        If there are counterfactuals, returns a dataframe containing only the counterfactuals.
+        otherwise returns nothing
+        :return: dataframe of [ycf, t0, t1, ite] or None.
+        """
+        cf: Tuple[str, ...] = tuple(
+            i for i in (
+                self.ycf_column,
+                self.t0_column,
+                self.t1_column,
+                self.ite_column
+            ) if i is not None
+        )
+        if len(cf) == 0:
+            return None
+        else:
+            return isolate_these_columns(
+                self.full_dataframe,
+                special_columns=cf,
+                remove_those_columns=False
+            )
 
-    @cache
-    def get_x_column_names(self) -> Tuple[str, ...]:
+    @property
+    def y_binary(self) -> bool:
+        return self._full_dataframe[self.y_column].nunique() < 3
+
+    @cached_property
+    def x_columns(self) -> Tuple[str, ...]:
         """:return: only the x column names"""
         return tuple(
             c_name for c_name in self._full_dataframe.columns.values
-            if (c_name != self.t_column) and (c_name != self.y_column) and (c_name not in self.counterfactual_columns)
+            if c_name not in chain(
+                [self.t_column, self.y_column, self.e_column],
+                self.counterfactual_columns
+            )
         )
 
-    @property
-    def x_columns(self) -> Tuple[str, ...]:
-        """:return: only the x column names"""
-        return self.get_x_column_names()
-
-    @property
+    @cached_property
     def xt_columns(self) -> Tuple[str, ...]:
         """:return: the x and factual t column names"""
         return tuple(
             chain_1(self.x_columns, self.t_column)
         )
 
-    @property
+    @cached_property
     def xt_counterfactual_columns(self) -> Tuple[str, ...]:
         """:return: the x and counterfactual t column names"""
         return tuple(
             chain_1(self.x_columns, self.t_cf_column)
         )
 
-    @property
+    @cached_property
     def full_factual_dataframe(self) -> pd.DataFrame:
         """:return: a copy of the full (factual) dataframe"""
         return isolate_these_columns(
@@ -894,6 +935,7 @@ class DataframeManager:
         if (
                 (x_columns is None) or
                 (x_columns == DatasetEnum.X) or
+                (x_columns == DatasetEnum.X_T) or
                 (hasattr(x_columns, "__iter__") and iter_is_none(x_columns))  # if x is iterable that contains nothing
         ):
             xdata = isolate_these_columns(
@@ -939,6 +981,28 @@ class DataframeManager:
                 xdata[self.t_column] = 1
 
         return xdata
+
+    def get_e(
+            self,
+            train: Optional[
+                Union[
+                    bool,
+                    pd.DataFrame
+                ]
+            ],
+            copy: bool = True
+    ) -> pd.DataFrame:
+        """
+        attempts to obtain e column (if it exists)
+        :param train: should we use the training set, the test set, or the full data?
+            if a dataframe, just use that dataframe.
+            if None, use the full dataframe.
+            if true, return data from the training set indices.
+            if false, return data from the test set indices.
+        :param copy: do we want a copy of the dataset?
+        :return: the appropriate dataframe but only the e column of it.
+        """
+        return self.x_data(train, x_columns=[self.e_column], copy=copy)
 
     def x_y(
             self,
@@ -999,6 +1063,9 @@ class DataframeManager:
                 if self.ite_column is not None:
                     y_missing = False
                     y_column = self.ite_column
+            elif y_column == DatasetEnum.X_T:
+                y_missing = False
+                y_column = self.t_column
             elif y_column == DatasetEnum.COUNTERFACTUAL:
                 if self.ycf_column is not None:
                     y_missing = False
@@ -1040,31 +1107,34 @@ class DataframeManager:
 
     def get_kfold_indices(
             self,
-            dataframe_to_use: Optional[pd.DataFrame] = None,
-            random_state: RNG = 42,
-            class_columns: Iterable[str] = tuple("t"),
+            train: Optional[bool] = True,
+            random_state: RNG = seed(),
+            class_columns: Iterable[str] = ("t", "e"),
             n_splits: int = 10,
             shuffle: bool = False
-    ) -> Iterable[Tuple[T_INDEX, T_INDEX]]:
+    ) -> KFolder:  # Iterable[Tuple[T_INDEX, T_INDEX]]:
         """
         handles getting the indices for the kfold stuff for the training set
-        :param dataframe_to_use: the dataframe to use. If None, we use self.train_df
+        :param train: If true, use train set. If false, return test set. If None, use full dataframe.
         :param random_state:
         :param class_columns:
         :param n_splits:
         :param shuffle:
         :return:
         """
-        if dataframe_to_use is None:
-            dataframe_to_use = self.train_df
+        if train is None:
+            train: pd.DataFrame = self.full_dataframe
+        elif train:
+            train: pd.DataFrame = self.train_df
+        else:
+            train: pd.DataFrame = self.test_df
         return KFolder(
-            dataframe_to_use,
+            train,
             columns_to_stratify_on=class_columns,
             random_state=random_state,
             n_splits=n_splits,
             shuffle=shuffle
         )
-
 
     def save_self(
             self,
@@ -1106,3 +1176,4 @@ class DataframeManager:
         assert isinstance(loaded, DataframeManager)
 
         return loaded
+
