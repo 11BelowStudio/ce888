@@ -6,13 +6,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
-import sklearn as skl
+import sklearn as sk
 import numpy as np
 
 from tempfile import mkdtemp
 from shutil import rmtree
 
-from typing import List, Tuple, Dict, Iterable, Iterator, TypeVar, Union, Optional, NoReturn, Any
+from typing import List, Tuple, Dict, Iterable, Iterator, TypeVar, Union, Optional, NoReturn, Any, Callable
 
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_score
 from sklearn.model_selection._validation import NotFittedError
@@ -27,7 +27,13 @@ from sklearn.metrics import r2_score, make_scorer
 from sklearn.experimental import enable_halving_search_cv
 from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 
-import dataframe_utils as df_utils
+from sklearn.metrics import r2_score, roc_auc_score
+
+import assignment2.a2_utils.dataframe_utils as df_utils
+
+from assignment2.a2_utils.metric_utils import *
+from assignment2.a2_utils.seed_utils import *
+from assignment2.a2_utils.misc_utils import *
 
 from sklearn.inspection import permutation_importance
 from sklearn.utils import Bunch
@@ -43,9 +49,7 @@ from functools import cached_property
 
 import pickle
 
-from metric_utils import *
-from seed_utils import *
-from misc_utils import *
+
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -60,7 +64,6 @@ EST = Union[R, C]
 
 PP = Union[R, C, "PPipeline"]
 
-from dataframe_utils import T_INDEX
 
 
 class PPipeline(Pipeline):
@@ -166,9 +169,9 @@ class PPipeline(Pipeline):
 @dataclasses.dataclass(init=True, eq=True, repr=True, frozen=True)
 class SimpleHalvingGridSearchResults:
 
-    gridSearch: HalvingGridSearchCV
+    searched: HalvingGridSearchCV
 
-    learner_type: str
+    learner_name: str
 
     dataset_name: str
 
@@ -180,17 +183,18 @@ class SimpleHalvingGridSearchResults:
 
     feature_importances: pd.DataFrame
 
-    gridsearch_train_r2_score: float
+    train_score: float
 
-    validation_fold_r2_score: float
+    validation_fold_score: float
 
-    yf_r2_score: float
+    yf_score: float
 
 
     # these will use a dummy value of 42 (because r2 score of 42 is impossible, and it's less ugly than a None)
-    ycf_r2_score: Optional[float]
-    t0_r2_score: Optional[float]
-    t1_r2_score: Optional[float]
+    ycf_score: Optional[float]
+    t0_score: Optional[float]
+    t1_score: Optional[float]
+    ite_score: Optional[float]
 
     # ITE/average treatment effect error metrics
     abs_ate: Optional[float]
@@ -214,16 +218,17 @@ class SimpleHalvingGridSearchResults:
     "y when t=1"
     ite_column: str
     "individual treatment effects"
-    e_column: str
+
+    e_data: np.ndarray
     "experimental/control group?"
 
     @property
     def has_counterfactual_score(self) -> bool:
-        return self.ycf_r2_score is not None
+        return self.ycf_score is not None
 
     @property
     def has_t0_t1_scores(self) -> bool:
-        return self.t0_r2_score is not None and self.t1_r2_score is not None
+        return self.t0_score is not None and self.t1_score is not None
 
 
     def pred_ate(self) -> float:
@@ -244,50 +249,50 @@ class SimpleHalvingGridSearchResults:
 
     @property
     def summary_info(self) -> str:
-        out_string: str = f"GridSearchResults summary {self.learner_type} {self.dataset_name}\n" \
-                          f"\n\ttest r2: {self.validation_fold_r2_score}" \
-                          f"\n\ttrain r2:{self.gridsearch_train_r2_score}" \
-                          f"\n\tyf r2:   {self.yf_r2_score}"
+        out_string: str = f"GridSearchResults summary {self.learner_name} {self.dataset_name}" \
+                          f"\n\ttest score:\t{self.validation_fold_score}" \
+                          f"\n\ttrain score:{self.train_score}" \
+                          f"\n\t{self.yf_column} score:\t{self.yf_score}"
+        if self.has_counterfactual_score:
+            out_string = out_string + \
+                         f"\n\tycf score:\t{self.ycf_score}"
+        if self.has_t0_t1_scores:
+            out_string = out_string + \
+                         f"\n\tt0 score:\t{self.t0_score}" \
+                         f"\n\tt1 score:\t{self.t1_score}" \
+                         f"\n\tite score:\t{self.ite_score}"
         if self.has_pehe:
             out_string = out_string + \
-                         f"\n\tabs ATE: {self.abs_ate}" \
-                         f"\n\tPEHE:    {self.pehe}"
+                         f"\n\tabs ATE:\t{self.abs_ate}" \
+                         f"\n\tPEHE:   \t{self.pehe}"
         if self.has_policy_risk:
             out_string = out_string + \
-                         f"\n\tabs ATT: {self.abs_att}" \
-                         f"\n\tp. risk: {self.policy_risk}"
+                         f"\n\tabs ATT:\t{self.abs_att}" \
+                         f"\n\tp. risk:\t{self.policy_risk}"
         return out_string
 
     @property
     def info(self) -> str:
-        out_string: str = f"GridSearchResults: {self.learner_type} {self.dataset_name}\n" \
-                          f"\testimator: {self.best_estimator_}\n" \
-                          f"\ttest r2: {self.validation_fold_r2_score}\n" \
-                          f"\ttrain r2:{self.gridsearch_train_r2_score}\n" \
-                          f"\tyf r2:   {self.yf_r2_score}"
-        if self.has_counterfactual_score:
-            out_string = out_string + \
-                         f"\n\tycf r2:  {self.ycf_r2_score}"
-        if self.has_t0_t1_scores:
-            out_string = out_string + \
-                         f"\n\tt0 r2:   {self.t0_r2_score}" \
-                         f"\n\tt1 r2:   {self.t1_r2_score}"
-        if self.has_pehe:
-            out_string = out_string + \
-                         f"\n\tabs ATE: {self.abs_ate}" \
-                         f"\n\tPEHE:    {self.pehe}"
-        if self.has_policy_risk:
-            out_string = out_string + \
-                         f"\n\tabs ATT: {self.abs_att}" \
-                         f"\n\tp. risk: {self.policy_risk}"
+        out_string: str = self.summary_info
+
+        out_string = out_string + "\n\tbest params:"
+
+        out_string = out_string + "".join(
+            f"\n\t\t{k} : {v}"
+            for k, v in self.best_params_.items()
+        )
 
         return out_string
 
+    @property
+    def best_params_(self) -> Dict[str, Any]:
+        return self.searched.best_params_
+
     def __lt__(self, other: "SimpleHalvingGridSearchResults") -> bool:
 
-        if self.validation_fold_r2_score < other.validation_fold_r2_score:
+        if self.validation_fold_score < other.validation_fold_score:
             return True
-        elif self.validation_fold_r2_score == other.validation_fold_r2_score:
+        elif self.validation_fold_score == other.validation_fold_score:
 
             if self.has_pehe and other.has_pehe:
                 # lower PEHE is better, so, the one with a larger PEHE is considered 'less than'.
@@ -303,10 +308,10 @@ class SimpleHalvingGridSearchResults:
                 elif self.policy_risk < other.policy_risk:
                     return False
 
-            if self.has_counterfactual_score <= 1 and other.has_counterfactual_score <= 1:
-                if self.ycf_r2_score < other.ycf_r2_score:
+            if self.has_counterfactual_score and other.has_counterfactual_score:
+                if self.ycf_score < other.ycf_score:
                     return True
-                elif self.ycf_r2_score > other.ycf_r2_score:
+                elif self.ycf_score > other.ycf_score:
                     return False
 
             if self.has_t0_t1_scores and other.has_t0_t1_scores:
@@ -316,21 +321,25 @@ class SimpleHalvingGridSearchResults:
                 # higher product = worse r2 scores: counted as 'less than'
                 # returns true if this object's combined r2 is worse than other.
                 if (
-                   (self.t0_r2_score-2) * (self.t1_r2_score-2)
+                        (self.t0_score - 2) * (self.t1_score - 2)
                 ) > (
-                    (other.t0_r2_score-2) * (other.t1_r2_score-2)
+                        (other.t0_score - 2) * (other.t1_score - 2)
                 ):
                     return True
                 else:
                     return False
             # otherwise compare the factual r2 scores
-            return self.yf_r2_score < other.yf_r2_score
+            return self.yf_score < other.yf_score
         # this is not less than the other thing
         return False
 
     @property
     def best_estimator_(self) -> PPipeline:
-        return self.gridSearch.best_estimator_
+        return self.searched.best_estimator_
+
+    @property
+    def clone_best_final_estimator(self) -> EST:
+        return sk.base.clone(self.best_estimator_.final_estimator)
 
     def plot_feature_importances(
             self,
@@ -355,7 +364,7 @@ class SimpleHalvingGridSearchResults:
             importance = self.feature_importances["importances_mean"].values
             error = self.feature_importances["importances_std"].values
 
-            plot_title = f"{self.dataset_name} feature importances using permutation for {self.learner_type}"
+            plot_title = f"{self.dataset_name} feature importances using permutation for {self.learner_name}"
 
             y_label = "Mean accuracy decrease"
 
@@ -364,7 +373,7 @@ class SimpleHalvingGridSearchResults:
             importance = self.best_estimator_.feature_importances_
             error = self.best_estimator_.feature_importances_std_
 
-            plot_title = f"{self.dataset_name} feature importances using Mean Decrease in Impurity (no permutation) for {self.learner_type}"
+            plot_title = f"{self.dataset_name} feature importances using Mean Decrease in Impurity (no permutation) for {self.learner_name}"
 
             y_label = "Mean decrease in impurity"
 
@@ -408,10 +417,10 @@ class SimpleHalvingGridSearchResults:
 
             self.plot_feature_importances(ax, perm)
 
-        fig.suptitle(f"{self.dataset_name} feature importance graphs for {self.learner_type}")
-        fig.tight_layout()
+        fig.suptitle(f"{self.dataset_name} feature importance graphs for {self.learner_name}")
+        #fig.tight_layout()
         fig.savefig(
-            fname=os.getcwd() + "\\" + f"{self.dataset_name}" + "\\" + f"{self.dataset_name} {self.learner_type} feature importances.pdf"
+            fname=os.getcwd() + "\\" + f"{self.dataset_name}" + "\\" + f"{self.dataset_name} {self.learner_name} feature importances.pdf"
         )
 
         return fig
@@ -420,9 +429,9 @@ class SimpleHalvingGridSearchResults:
 
         path: str = os.getcwd() + "\\" + f"{self.dataset_name}" + "\\"
 
-        results_go_here: str = path + f"{self.dataset_name} {self.learner_type} simple results.pickle"
+        results_go_here: str = path + f"{self.dataset_name} {self.learner_name} results.pickle"
 
-        estimator_goes_here: str = path + f"{self.dataset_name} {self.learner_type} simple estimator.pickle"
+        estimator_goes_here: str = path + f"{self.dataset_name} {self.learner_name} estimator.pickle"
 
         print(f"Pickling results to: {results_go_here}")
 
@@ -441,20 +450,48 @@ class SimpleHalvingGridSearchResults:
             cls,
             searcher: HalvingGridSearchCV,
             df_m: df_utils.DataframeManager,
-            learner_type: str
+            xy: df_utils.DatasetEnum,
+            learner_name: str,
+            scorer_to_use: Literal["roc_auc", "r2"] = "r2",
+            y_name: Optional[str] = None,
+            t_name: Optional[str] = None,
+            ycf_name: Optional[str] = None,
+            t0_name: Optional[str] = None,
+            t1_name: Optional[str] = None,
+            ite_name: Optional[str] = None,
+            **kwargs
     ) -> "SimpleHalvingGridSearchResults":
 
-        all_x,all_yf = df_m.x_y(
+        all_x, all_yf = df_m.x_y(
             train=None,
-            x_columns=df_utils.DatasetEnum.FACTUAL
+            x_columns=xy
         )
+
+        if y_name is None:
+            y_name = df_m.y_column
+
+        if t_name is None:
+            t_name = df_m.t_column
+
+        if ycf_name is None:
+            ycf_name = df_m.ycf_column
+
+        if t0_name is None:
+            t0_name = df_m.t0_column
+
+        if t1_name is None:
+            t1_name = df_m.t1_column
+
+        if ite_name is None:
+            ite_name = df_m.ite_column
 
         return cls.make(
             searcher=searcher,
             dataset_name=df_m.dataset_name,
-            learner_type=learner_type,
+            learner_name=learner_name,
             all_x_data=all_x,
             factual_y_data=all_yf,
+            scorer=r2_score if scorer_to_use == "r2" else roc_auc_score,
             test_indices=df_m.test_indices,
             e_data=df_m.get_e(train=None)[df_m.e_column].to_numpy(),
             true_t0_t1_ite_ycf=df_m.t0_t1_ite_ycf_df_or_none,
@@ -471,27 +508,30 @@ class SimpleHalvingGridSearchResults:
             cls,
             searcher: HalvingGridSearchCV,
             dataset_name: str,
-            learner_type: str,
+            learner_name: str,
             all_x_data: pd.DataFrame,
             factual_y_data: pd.DataFrame,
-            test_indices: T_INDEX,
-            e_data: np.ndarray,
+            scorer: Callable[[np.ndarray, np.ndarray], float],
+            test_indices: df_utils.T_INDEX,
+            e_data: Optional[np.ndarray] = None,
             true_t0_t1_ite_ycf: Optional[pd.DataFrame] = None,
             t_column: str = "t",
             yf_column: str = "yf",
-            ycf_column:str = "ycf",
+            ycf_column: str = "ycf",
             t0_column: str = "t0",
             t1_column: str = "t1",
             ite_column: str = "ite",
     ) -> "SimpleHalvingGridSearchResults":
 
+        has_t: bool = t_column in all_x_data  # here for the things where it attempts to predict T.
+
         this_x: pd.DataFrame = all_x_data.copy()
 
         this_x_y: pd.DataFrame = this_x.copy()
 
-        train_r2_score: float = searcher.best_score_
+        train_score: float = searcher.best_score_
 
-        validation_r2_score: float = searcher.score(
+        validation_score: float = searcher.score(
             this_x.loc[test_indices],
             factual_y_data.loc[test_indices]
         )
@@ -521,35 +561,16 @@ class SimpleHalvingGridSearchResults:
             this_x.to_numpy()
         )
 
-        factual_r2_score: float = r2_score(
+        factual_score: float = scorer(
             factual_y_data.to_numpy(),
             this_x_y[yf_column].to_numpy()
         )
-
-        old_t = this_x[t_column].to_numpy(copy=True)
-
-        this_x[t_column] = np.choose(this_x[t_column].values,[1,0])
-
-        this_x_y[ycf_column] = searcher.predict(
-            this_x.to_numpy()
-        )
-
-        this_x[t_column] = 0
-
-        this_x_y[t0_column] = searcher.predict(this_x.to_numpy())
-
-        this_x[t_column] = 1
-
-        this_x_y[t1_column] = searcher.predict(this_x.to_numpy())
-
-        this_x[t_column] = old_t
-
-        this_x_y[ite_column] = this_x_y[t1_column] - this_x_y[t0_column]
 
         # dummy values of 42 because  r2 score of 42 is impossible.
         ycf_score: Optional[float] = None
         t0_score: Optional[float] = None
         t1_score: Optional[float] = None
+        ite_score: Optional[float] = None
 
         _abs_ate: Optional[float] = None
         _pehe: Optional[float] = None
@@ -558,67 +579,94 @@ class SimpleHalvingGridSearchResults:
 
         _policy_risk: Optional[float] = None
 
-        if true_t0_t1_ite_ycf is not None:
-            ycf_score = r2_score(
-                true_t0_t1_ite_ycf[ycf_column].to_numpy(),
-                this_x_y[ycf_column].to_numpy()
-            )
-            t0_score = r2_score(
-                true_t0_t1_ite_ycf[t0_column].to_numpy(),
-                this_x_y[t0_column].to_numpy()
-            )
-            t1_score = r2_score(
-                true_t0_t1_ite_ycf[t1_column].to_numpy(),
-                this_x_y[t1_column].to_numpy()
+        if has_t:
+            old_t = this_x[t_column].to_numpy(copy=True)
+
+            this_x[t_column] = np.choose(this_x[t_column].values, [1, 0])
+
+            this_x_y[ycf_column] = searcher.predict(
+                this_x.to_numpy()
             )
 
-            real_ite = true_t0_t1_ite_ycf[ite_column].to_numpy()
-            pred_ite = this_x_y[ite_column].to_numpy()
+            this_x[t_column] = 0
 
-            _abs_ate = abs_ate(
-                real_ite,
-                pred_ite
+            this_x_y[t0_column] = searcher.predict(this_x.to_numpy())
+
+            this_x[t_column] = 1
+
+            this_x_y[t1_column] = searcher.predict(this_x.to_numpy())
+
+            this_x[t_column] = old_t
+
+            this_x_y[ite_column] = this_x_y[t1_column] - this_x_y[t0_column]
+
+            if true_t0_t1_ite_ycf is not None:
+                ycf_score = scorer(
+                    true_t0_t1_ite_ycf[ycf_column].to_numpy(),
+                    this_x_y[ycf_column].to_numpy()
+                )
+                t0_score = scorer(
+                    true_t0_t1_ite_ycf[t0_column].to_numpy(),
+                    this_x_y[t0_column].to_numpy()
+                )
+                t1_score = scorer(
+                    true_t0_t1_ite_ycf[t1_column].to_numpy(),
+                    this_x_y[t1_column].to_numpy()
+                )
+
+                real_ite = true_t0_t1_ite_ycf[ite_column].to_numpy()
+                pred_ite = this_x_y[ite_column].to_numpy()
+
+                ite_score = scorer(
+                    real_ite,
+                    pred_ite
+                )
+
+                _abs_ate = abs_ate(
+                    real_ite,
+                    pred_ite
+                )
+                _pehe = pehe(
+                    real_ite,
+                    pred_ite
+                )
+
+            if e_data is None:
+                e_data = np.ones_like(this_x[t_column].to_numpy())
+
+            pred_ite: np.ndarray = this_x_y[ite_column].to_numpy()
+            _yf: np.ndarray = this_x_y[yf_column].to_numpy()
+            _t: np.ndarray = this_x_y[t_column].to_numpy()
+
+            _abs_att = abs_att(
+                pred_ite,
+                _yf,
+                _t,
+                e_data
             )
-            _pehe = pehe(
-                real_ite,
-                pred_ite
+
+            _policy_risk = policy_risk(
+                pred_ite,
+                _yf,
+                _t,
+                e_data
             )
-
-        if e_data is None:
-            e_data = np.ones_like(this_x[t_column].to_numpy())
-
-        pred_ite: np.ndarray = this_x_y[ite_column].to_numpy()
-        _yf: np.ndarray = this_x_y[yf_column].to_numpy()
-        _t: np.ndarray= this_x_y[t_column].to_numpy()
-
-        _abs_att = abs_att(
-            pred_ite,
-            _yf,
-            _t,
-            e_data
-        )
-
-        _policy_risk = policy_risk(
-            pred_ite,
-            _yf,
-            _t,
-            e_data
-        )
 
         return SimpleHalvingGridSearchResults(
-            gridSearch=searcher,
+            searched=searcher,
             dataset_name=dataset_name,
-            learner_type=learner_type,
+            learner_name=learner_name,
             test_indices=test_indices,
             x_t_column_names=x_t_names,
             predictions=this_x_y,
             feature_importances=importance_df,
-            gridsearch_train_r2_score=train_r2_score,
-            validation_fold_r2_score=validation_r2_score,
-            yf_r2_score=factual_r2_score,
-            ycf_r2_score=ycf_score,
-            t0_r2_score=t0_score,
-            t1_r2_score=t1_score,
+            train_score=train_score,
+            validation_fold_score=validation_score,
+            yf_score=factual_score,
+            ycf_score=ycf_score,
+            t0_score=t0_score,
+            t1_score=t1_score,
+            ite_score=ite_score,
             abs_ate=_abs_ate,
             pehe=_pehe,
             abs_att=_abs_att,
@@ -628,7 +676,8 @@ class SimpleHalvingGridSearchResults:
             ycf_column=ycf_column,
             t0_column=t0_column,
             t1_column=t1_column,
-            ite_column=ite_column
+            ite_column=ite_column,
+            e_data=e_data
         )
 
 def fallback_w_h_calc(split_this: int) -> Tuple[int, int]:
@@ -668,6 +717,11 @@ def w_h_finder(value_to_split: int) -> Tuple[int, int]:
 
 
 def factor_finder(split_this: int) -> Tuple[int, int]:
+    """
+    finds a usable min_res, factor for use in the halvinggridsearch. trying to maximize factor.
+    :param split_this:
+    :return:
+    """
 
     # find the factor with most splits for split_this.
     # for i in range(1, sqrt)
@@ -680,9 +734,9 @@ def factor_finder(split_this: int) -> Tuple[int, int]:
 
     best_so_far: Tuple[int, int, int] = (-1, -1, 0)
 
-    for k, v in factors.items():
-        if v[1] > best_so_far[2]:
-            best_so_far = (k, v[0],v[1])
+    for fac, v in factors.items():
+        if fac > best_so_far[0]:
+            best_so_far = (fac, v[0], v[1])
 
     if best_so_far[2] == 0:
         return w_h_finder(split_this)
@@ -763,19 +817,31 @@ def simple_halving_grid_searcher(
     return h_grid_search
 """
 
-#%%
-def simple_nested_halving_grid_searcher(
+
+def r2_score_id() -> Literal["r2"]:
+    """:return: 'r2', the string identifier for the r2 scoring function"""
+    return "r2"
+
+
+def roc_auc_id() -> Literal["roc_auc"]:
+    """:return: 'roc_auc', the string identifier for the 'reciever operating characteristic area under curve' scoring function"""
+    return "roc_auc"
+
+
+def simple_halving_grid_searcher(
     estimator: EST,
     param_grid: Dict[str, List[Any]],
     df_m: df_utils.DataframeManager,
     df_selection: df_utils.DatasetEnum,
     learner_name: str,
     kfold_splits: int = 10,
+    scorer_to_use: Literal["roc_auc", "r2"] = "r2",
     stratify_on: Iterable[str] = tuple("t"),
     sample_weights: Optional[np.ndarray] = None,
     nested_rng_generator: RNG = None,
     resource: str = "n_samples",
     resource_param_values: Optional[Iterable[int]] = None,
+    **kwargs
 ) -> List[SimpleHalvingGridSearchResults]:
     """
 
@@ -785,6 +851,7 @@ def simple_nested_halving_grid_searcher(
     :param df_selection:
     :param learner_name:
     :param kfold_splits:
+    :param scorer_to_use: the scorer to use. either "r2" or "roc_auc"
     :param stratify_on:
     :param sample_weights:
     :param nested_rng_generator:
@@ -811,7 +878,7 @@ def simple_nested_halving_grid_searcher(
     child_splits: int = max(1, kfold_splits-1)
     child_kf: Union[KFold, Iterable[Tuple[np.ndarray, np.ndarray]]] = KFold(n_splits=child_splits, shuffle=False)
 
-    the_splits: Iterable[Tuple[T_INDEX, T_INDEX]] = df_m.get_kfold_indices(
+    the_splits: Iterable[Tuple[df_utils.T_INDEX, df_utils.T_INDEX]] = df_m.get_kfold_indices(
         train=True,
         random_state=nested_rng_generator,
         class_columns=stratify_on,
@@ -823,7 +890,7 @@ def simple_nested_halving_grid_searcher(
 
     for i, max_res in enumerate(resource_param_values, 1):
 
-        print(f"-- {i}/{len(resource_param_values)} start --")
+        print(f"-- 10-fold attempt {i}/{len(resource_param_values)} start --")
 
         pipe: PPipeline = PPipeline(steps=[
             ("scaler", QuantileTransformer(output_distribution="normal")),
@@ -842,7 +909,7 @@ def simple_nested_halving_grid_searcher(
             param_grid=param_grid,
             factor=factor,
             cv=the_splits,
-            scoring=make_scorer(r2_score),
+            scoring=scorer_to_use,
             refit=True,
             verbose=1,
             n_jobs=-1,
@@ -860,7 +927,6 @@ def simple_nested_halving_grid_searcher(
             min_resources= min_res #n_max_resources//4
         )
 
-
         if sample_weights is not None:
 
             current_search.fit(
@@ -872,12 +938,19 @@ def simple_nested_halving_grid_searcher(
             )
 
         res: SimpleHalvingGridSearchResults = SimpleHalvingGridSearchResults.make_dfm(
-            current_search,
-            df_m,
-            learner_name
+            searcher=current_search,
+            df_m=df_m,
+            xy=df_selection,
+            learner_name=learner_name,
+            scorer_to_use=scorer_to_use,
+            **kwargs
         )
 
         results.append(res)
+
+        print(f"best from this iteration: \n{res.summary_info}")
+
+        print(f"\n--- {i}/{len(resource_param_values)} END ---")
 
     return results
 

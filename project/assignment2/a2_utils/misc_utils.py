@@ -52,7 +52,7 @@ def iter_is_none(
     :return: true if 'the_iter' is None, empty, or only contains Nones
     """
     return (
-                   the_iter is None
+            the_iter is None
            ) or (
                not any(
                    i is not None

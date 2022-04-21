@@ -28,9 +28,9 @@ from enum import Enum, auto
 import pickle
 
 
-from seed_utils import *
+from assignment2.a2_utils.seed_utils import *
 
-from misc_utils import *
+from assignment2.a2_utils.misc_utils import *
 
 T_INDEX = Union[np.ndarray, Index]
 "type alias for potential datatypes that could be used to obtain data from the dataframe by index"
@@ -459,7 +459,7 @@ def stratified_class_label_maker(
         columns_to_merge_for_labels,
         False,
         True
-    ).agg(" ".join, axis=1).values
+    ).astype(str).agg(" ".join, axis=1).values
 
 
 def train_test_index_maker(
@@ -503,6 +503,14 @@ class DatasetEnum(Enum):
     T1 = auto()
     "represents 'getting the x = (x + (t=1)) and y = y(t1)' data"
 
+    IPSW_X_TCF = auto()
+    """
+    Inverse propensity weighting: the INVERSE of whether an individual will be assigned to the treatment group;
+    in other words, the likelihood of the individual NOT being treated.
+    
+    So this obtains x=x, y=tcf, attempting to predict the inverse of the individual's likelihood to get treated.
+    """
+
     @classmethod
     def ITE(cls) -> "DatasetEnum":
         """
@@ -533,9 +541,8 @@ class KFolder(Iterable[Tuple[T_INDEX, T_INDEX]]):
         :param n_splits: number of folds
         :param shuffle: are we shuffling this? (set to false if using HalvingGridSearchCV)
         """
-
-        self.random_state = random_state
         self.shuffle = shuffle
+        self.random_state = random_state if shuffle else None
         self.n_splits = n_splits
 
         self.class_labels = stratified_class_label_maker(
@@ -942,6 +949,7 @@ class DataframeManager:
                 (x_columns is None) or
                 (x_columns == DatasetEnum.X) or
                 (x_columns == DatasetEnum.X_T) or
+                (x_columns == DatasetEnum.IPSW_X_TCF) or
                 (hasattr(x_columns, "__iter__") and iter_is_none(x_columns))  # if x is iterable that contains nothing
         ):
             xdata = isolate_these_columns(
@@ -1096,6 +1104,9 @@ class DataframeManager:
             elif y_column == DatasetEnum.X_T:
                 y_missing = False
                 y_column = self.t_column
+            elif y_column == DatasetEnum.IPSW_X_TCF:
+                y_missing = False
+                y_column = self.t_cf_column
             elif y_column == DatasetEnum.COUNTERFACTUAL:
                 if self.ycf_column is not None:
                     y_missing = False
@@ -1191,6 +1202,7 @@ class DataframeManager:
         with open(save_as, "wb") as the_file:
             pickle.dump(self, the_file)
             print("pickled!")
+            success = True
 
         return success
 
