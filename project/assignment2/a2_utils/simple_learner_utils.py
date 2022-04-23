@@ -981,12 +981,12 @@ class IpswWrapper:
 
         path: str = f"{os.getcwd()}\\{self.dataset_name}\\{self.dataset_name} IPSW wrapper.pickle"
 
-        with open(path, "rb") as save_here:
+        with open(path, "wb") as save_here:
             pickle.dump(self, save_here, fix_imports=True)
 
     @classmethod
     def load_me(cls, save_location: str) -> "IpswWrapper":
-        with open(save_location, "wb") as load_pickle:
+        with open(save_location, "rb") as load_pickle:
             return pickle.load(load_pickle, fix_imports=True)
 
 
