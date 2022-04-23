@@ -30,6 +30,7 @@ from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
 from sklearn.metrics import r2_score, roc_auc_score
 
 import assignment2.a2_utils.dataframe_utils as df_utils
+from assignment2.a2_utils import metric_utils
 
 from assignment2.a2_utils.metric_utils import *
 from assignment2.a2_utils.seed_utils import *
@@ -42,7 +43,11 @@ import dataclasses
 import os
 import sys
 
+from inspect import ismethod, getmembers
+
 import traceback
+
+import sklearn
 
 
 from functools import cached_property
@@ -104,11 +109,11 @@ class PPipeline(Pipeline):
 
     @cached_property
     def feature_importances_(self) -> np.ndarray:
-        return PPipeline.get_importances_mdi(self.final_estimator)
+        return get_importances_mdi(self.final_estimator)
 
     @cached_property
     def feature_importances_std_(self) -> np.ndarray:
-        return PPipeline.get_importance_mdi_std(self.final_estimator)
+        return get_importance_mdi_std(self.final_estimator)
 
     @property
     def estimator_type(self) -> str:
@@ -130,40 +135,71 @@ class PPipeline(Pipeline):
         # noinspection PyProtectedMember
         return self._get_estimator_from_type(ClassifierMixin._estimator_type)
 
-    @staticmethod
-    def get_importances_mdi(predictor: PP) -> np.ndarray:
-        """
-        Obtains min decrease in impurity feature importances for a given predictor
-        :param predictor: the predictor we want the MDI-based importances of
-        :return: np.ndarray of the feature importances of the predictor.
-        """
-        try:
-            return predictor.feature_importances_
-        except AttributeError as e1:
-            try:
-                return predictor.coef_.flatten()
-            except AttributeError as e2:
-                try:
-                    return np.mean([PPipeline.get_importances_mdi(p) for p in predictor.estimators_],axis=0)
-                except AttributeError as e3:
-                    # noinspection PyProtectedMember
-                    return PPipeline.get_importances_mdi(predictor._final_estimator)
 
-    @staticmethod
-    def get_importance_mdi_std(predictor: PP) -> np.ndarray:
-        """
-        Obtains standard deviation of min decrease in impurity feature importances for a given predictor
-        :param predictor: the predictor we want the MDI-based importances of
-        :return: np.ndarray of the feature importances of the predictor.
-        """
-        try:
-            return np.std([PPipeline.get_importances_mdi(p) for p in predictor.estimators_], axis=0)
-        except AttributeError as e1:
-            try:
-                return np.std([PPipeline.get_importances_mdi(predictor)], axis=0)
-            except AttributeError as e2:
-                return PPipeline.get_importance_mdi_std(predictor._final_estimator)
 
+def get_importances_mdi(predictor: PP) -> np.ndarray:
+    """
+    Obtains min decrease in impurity feature importances for a given predictor
+    :param predictor: the predictor we want the MDI-based importances of
+    :return: np.ndarray of the feature importances of the predictor.
+    """
+    try:
+        return predictor.feature_importances_
+    except AttributeError as e1:
+        try:
+            return predictor.coef_.flatten()
+        except AttributeError as e2:
+            try:
+                return np.mean([get_importances_mdi(p) for p in predictor.estimators_], axis=0)
+            except AttributeError as e3:
+                # noinspection PyProtectedMember
+                return get_importances_mdi(predictor._final_estimator)
+
+
+def get_importance_mdi_std(predictor: PP) -> np.ndarray:
+    """
+    Obtains standard deviation of min decrease in impurity feature importances for a given predictor
+    :param predictor: the predictor we want the MDI-based importances of
+    :return: np.ndarray of the feature importances of the predictor.
+    """
+    try:
+        return np.std([get_importances_mdi(p) for p in predictor.estimators_], axis=0)
+    except AttributeError as e1:
+        try:
+            return np.std([get_importances_mdi(predictor)], axis=0)
+        except AttributeError as e2:
+            # noinspection PyProtectedMember
+            return get_importance_mdi_std(predictor._final_estimator)
+
+
+def get_permutation_importances(
+        estimator: PP,
+        x: pd.DataFrame,
+        y: pd.DataFrame,
+        n_repeats: int = 10,
+        random_state: RNG = seed()
+) -> pd.DataFrame:
+
+    importance_results: Bunch = permutation_importance(
+        estimator,
+        x,
+        y,
+        n_repeats=n_repeats,
+        random_state=random_state,
+        n_jobs=-1
+    )
+
+    importance_df: pd.DataFrame = pd.DataFrame()
+
+    importance_df["features"] = x.columns.values
+
+    importance_df["mean"] = importance_results.importances_mean
+    importance_df["std"] = importance_results.importances_std
+    importance_df["importances"] = importance_results.importances.tolist()
+
+    importance_df.set_index("features")
+
+    return importance_df
 
 
 @dataclasses.dataclass(init=True, eq=True, repr=True, frozen=True)
@@ -361,8 +397,8 @@ class SimpleHalvingGridSearchResults:
 
         if permutation:
 
-            importance = self.feature_importances["importances_mean"].values
-            error = self.feature_importances["importances_std"].values
+            importance = self.feature_importances["mean"].values
+            error = self.feature_importances["std"].values
 
             plot_title = f"{self.dataset_name} feature importances using permutation for {self.learner_name}"
 
@@ -407,7 +443,8 @@ class SimpleHalvingGridSearchResults:
             nrows=2,
             ncols=1,
             squeeze=True,
-            figsize=(16,18)
+            figsize=(16, 18),
+            tight_layout=True
         )
 
         fig: plt.Figure = faa[0]
@@ -418,32 +455,40 @@ class SimpleHalvingGridSearchResults:
             self.plot_feature_importances(ax, perm)
 
         fig.suptitle(f"{self.dataset_name} feature importance graphs for {self.learner_name}")
-        #fig.tight_layout()
+
+        rel_filename: str = f"\\{self.dataset_name}\\{self.dataset_name} {self.learner_name} feature importances.pdf"
+        print(f"Exporting feature importance graph to {rel_filename}")
         fig.savefig(
-            fname=os.getcwd() + "\\" + f"{self.dataset_name}" + "\\" + f"{self.dataset_name} {self.learner_name} feature importances.pdf"
+            fname=f"{os.getcwd()}{rel_filename}"
         )
 
         return fig
 
     def save_me(self) -> NoReturn:
 
-        path: str = os.getcwd() + "\\" + f"{self.dataset_name}" + "\\"
+        rel_folder: str = f"\\{self.dataset_name}\\"
 
-        results_go_here: str = path + f"{self.dataset_name} {self.learner_name} results.pickle"
+        results_go_here_rel: str = f"{rel_folder}{self.dataset_name} {self.learner_name} results.pickle"
 
-        estimator_goes_here: str = path + f"{self.dataset_name} {self.learner_name} estimator.pickle"
+        estimator_goes_here_rel: str = f"{rel_folder}{self.dataset_name} {self.learner_name} estimator.pickle"
 
-        print(f"Pickling results to: {results_go_here}")
+        print(f"Pickling results to: {results_go_here_rel}")
 
-        with open(results_go_here, "wb") as resultsPickle:
+        with open(f"{os.getcwd()}{results_go_here_rel}", "wb") as resultsPickle:
             pickle.dump(self, resultsPickle)
             print("pickled results!")
 
-        print(f"Pickling simple estimator to {estimator_goes_here}")
+        print(f"Pickling simple estimator to {estimator_goes_here_rel}")
 
-        with open(estimator_goes_here, "wb") as estPickle:
+        with open(f"{os.getcwd()}{estimator_goes_here_rel}", "wb") as estPickle:
             pickle.dump(self.best_estimator_, estPickle)
             print("pickled estimator!")
+
+    @classmethod
+    def load_me(cls, save_location: str) -> "SimpleHalvingGridSearchResults":
+
+        with open(save_location, "rb") as load_pickle:
+            return pickle.load(load_pickle, fix_imports=True)
 
     @classmethod
     def make_dfm(
@@ -536,26 +581,15 @@ class SimpleHalvingGridSearchResults:
             factual_y_data.loc[test_indices]
         )
 
-        importance_results: Bunch = permutation_importance(
-            searcher,
+        x_t_names: Tuple[str] = tuple(this_x.columns.values)
+
+        importance_df: pd.DataFrame = get_permutation_importances(
+            searcher.best_estimator_,
             this_x.loc[test_indices],
             factual_y_data.loc[test_indices],
             n_repeats=10,
-            random_state=seed(),
-            n_jobs=-1
+            random_state=seed()
         )
-
-        importance_df: pd.DataFrame = pd.DataFrame()
-
-        x_t_names: Tuple[str] = tuple(this_x.columns.values)
-
-        importance_df["features"] = this_x.columns.values
-
-        importance_df["importances_mean"] = importance_results.importances_mean
-        importance_df["importances_std"] = importance_results.importances_std
-        importance_df["importances"] = importance_results.importances.tolist()
-
-        importance_df.set_index("features")
 
         this_x_y[yf_column] = searcher.predict(
             this_x.to_numpy()
@@ -679,6 +713,94 @@ class SimpleHalvingGridSearchResults:
             ite_column=ite_column,
             e_data=e_data
         )
+
+
+def standalone_feature_importance_plotter(
+        predictor: PP,
+        x_data: pd.DataFrame,
+        y_data: pd.DataFrame,
+        predictor_name: str,
+        dataset_name: str,
+        n_repeats: int = 10,
+        random_state: RNG = seed(),
+) -> plt.Figure:
+
+    feature_importances: pd.DataFrame = get_permutation_importances(
+        predictor,
+        x_data,
+        y_data,
+        n_repeats=n_repeats,
+        random_state=random_state
+    )
+
+    x_t_names: Tuple[str] = tuple(x_data.columns.values)
+
+    faa: Tuple[plt.Figure, Tuple[plt.Axes, plt.Axes]] = plt.subplots(
+        nrows=2,
+        ncols=1,
+        squeeze=True,
+        figsize=(16, 18),
+        tight_layout=True
+    )
+
+    fig: plt.Figure = faa[0]
+    axs: Tuple[plt.Axes, plt.Axes] = faa[1]
+
+    for ax, perm in zip(axs, [False, True]):
+
+        importance: np.ndarray = np.zeros_like(feature_importances.index)
+        error: np.ndarray = np.zeros_like(feature_importances.index)
+
+        y_label: str = "PLACEHOLDER"
+        plot_title: str = "PLACEHOLDER"
+
+        if perm:
+            importance = feature_importances["mean"].values
+            error = feature_importances["std"].values
+
+            plot_title = f"{dataset_name} feature importances using permutation for {predictor_name}"
+
+            y_label = "Mean accuracy decrease"
+        else:
+            importance = get_importances_mdi(predictor)
+            error = get_importance_mdi_std(predictor)
+
+            plot_title = f"{dataset_name} feature importances using Mean Decrease in Impurity (no permutation) for {predictor_name}"
+
+            y_label = "Mean decrease in impurity"
+
+        bar: matplotlib.container.BarContainer = ax.bar(
+            x_t_names,
+            importance,
+            yerr=error
+        )
+
+        ax.bar_label(
+            bar,
+            labels=[
+                f'{val:.3f}\n±{err:.3f}'
+                for val, err in zip(importance, error)
+            ]
+        )
+
+        ax.axhline(0, color='grey', linewidth=0.8)
+
+        ax.grid(visible=True, which="both", axis="both")
+
+        ax.set_title(plot_title)
+        ax.set_ylabel(y_label)
+        ax.set_xlabel("feature names")
+
+    fig.suptitle(f"{dataset_name} feature importance graphs for {predictor_name }")
+
+    rel_filename: str = f"\\{dataset_name}\\{dataset_name} {predictor_name} feature importances.pdf"
+    print(f"Exporting feature importance graph to {rel_filename}")
+    fig.savefig(
+        fname=f"{os.getcwd()}{rel_filename}"
+    )
+
+    return fig
+
 
 def fallback_w_h_calc(split_this: int) -> Tuple[int, int]:
     h = np.floor(np.sqrt(split_this))
@@ -828,6 +950,49 @@ def roc_auc_id() -> Literal["roc_auc"]:
     return "roc_auc"
 
 
+@dataclasses.dataclass(init=True, frozen=True)
+class IpswWrapper:
+    """
+    convenience object for the IPSW calculation things
+    """
+
+    ipsw_clf: ClassifierMixin
+
+    dataset_name: str
+
+    @classmethod
+    def make(
+            cls,
+            ipsw_clf: Union[ClassifierMixin, PPipeline],
+            dataset_name: str
+    ) -> "IpswWrapper":
+        # noinspection PyTypeChecker
+        return cls(
+            ipsw_clf = sklearn.base.clone(ipsw_clf),
+            dataset_name=dataset_name
+        )
+
+    def ipsw(self, x, t) -> np.ndarray:
+        return metric_utils.get_ps_weights(
+            sklearn.base.clone(self.ipsw_clf), x, t
+        )
+
+    def save_me(self) -> NoReturn:
+
+        path: str = f"{os.getcwd()}\\{self.dataset_name}\\{self.dataset_name} IPSW wrapper.pickle"
+
+        with open(path, "rb") as save_here:
+            pickle.dump(self, save_here, fix_imports=True)
+
+    @classmethod
+    def load_me(cls, save_location: str) -> "IpswWrapper":
+        with open(save_location, "wb") as load_pickle:
+            return pickle.load(load_pickle, fix_imports=True)
+
+
+
+
+
 def simple_halving_grid_searcher(
     estimator: EST,
     param_grid: Dict[str, List[Any]],
@@ -837,7 +1002,7 @@ def simple_halving_grid_searcher(
     kfold_splits: int = 10,
     scorer_to_use: Literal["roc_auc", "r2"] = "r2",
     stratify_on: Iterable[str] = tuple("t"),
-    sample_weights: Optional[np.ndarray] = None,
+    ipsw_calc: Optional[IpswWrapper] = None,
     nested_rng_generator: RNG = None,
     resource: str = "n_samples",
     resource_param_values: Optional[Iterable[int]] = None,
@@ -853,7 +1018,7 @@ def simple_halving_grid_searcher(
     :param kfold_splits:
     :param scorer_to_use: the scorer to use. either "r2" or "roc_auc"
     :param stratify_on:
-    :param sample_weights:
+    :param ipsw_calc:
     :param nested_rng_generator:
     :param resource: the resource used for the halving grid search.
     :param resource_param_values:
@@ -927,10 +1092,18 @@ def simple_halving_grid_searcher(
             min_resources= min_res #n_max_resources//4
         )
 
-        if sample_weights is not None:
+        if ipsw_calc is not None:
+
+            _x, _t = df_utils.x_y_splitter(
+                train_data,
+                x_columns=df_m.x_columns,
+                y_column=df_m.y_column
+            )
 
             current_search.fit(
-                train_data, train_labels, sample_weight=sample_weights[df_m.train_indices]
+                train_data, train_labels, sample_weight=ipsw_calc.ipsw(
+                    _x, _t
+                )
             )
         else:
             current_search.fit(

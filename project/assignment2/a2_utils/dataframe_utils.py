@@ -490,8 +490,8 @@ def train_test_index_maker(
 
 
 class DatasetEnum(Enum):
-    X = auto()
-    "represents 'only getting the X data (with no T)' (and y=y ITE)"
+    X_Y = auto()
+    "represents 'only getting the X data (with no T)' (and y=yf)"
     X_T = auto()
     "represents x=x, y=t"
     FACTUAL = auto()
@@ -510,14 +510,6 @@ class DatasetEnum(Enum):
     
     So this obtains x=x, y=tcf, attempting to predict the inverse of the individual's likelihood to get treated.
     """
-
-    @classmethod
-    def ITE(cls) -> "DatasetEnum":
-        """
-        An alias for DatasetEnum.X (because that's technically 'return X=only X, y=ITE')
-        :return: DatasetEnum.X
-        """
-        return cls.X
 
 
 class KFolder(Iterable[Tuple[T_INDEX, T_INDEX]]):
@@ -666,8 +658,7 @@ class DataframeManager:
     e_column: str
     "name of E (is individual from experiment group or control group?) column"
 
-    ipsw_column: str
-    "inverse propensity score weighting column name"
+
 
     @classmethod
     def make(
@@ -685,8 +676,7 @@ class DataframeManager:
             ycf_column: Optional[str] = None,
             t0_column: Optional[str] = None,
             t1_column: Optional[str] = None,
-            ite_column: Optional[str] = None,
-            ipsw_column: str = "ipsw"
+            ite_column: Optional[str] = None
     ) -> "DataframeManager":
         """
 
@@ -704,7 +694,6 @@ class DataframeManager:
         :param t0_column:
         :param t1_column:
         :param ite_column:
-        :param ipsw_column:
         :return:
         """
 
@@ -734,8 +723,7 @@ class DataframeManager:
             t0_column=t0_column,
             t1_column=t1_column,
             ite_column=ite_column,
-            e_column=e_column,
-            ipsw_column=ipsw_column
+            e_column=e_column
         )
 
     @cached_property
@@ -924,7 +912,7 @@ class DataframeManager:
             if false, return data from the test set indices.
         :param x_columns: Which X columns do we want?
             if a DatasetEnum is given, obtain the appropriate X columns for that.
-                X -> self.x_columns
+                X_Y -> self.x_columns
                 FACTUAL -> self.xt_columns
                 COUNTERFACTUAL -> self.xt_counterfactual_columns
                 T0 -> self.x_columns + (t=0)
@@ -947,7 +935,7 @@ class DataframeManager:
 
         if (
                 (x_columns is None) or
-                (x_columns == DatasetEnum.X) or
+                (x_columns == DatasetEnum.X_Y) or
                 (x_columns == DatasetEnum.X_T) or
                 (x_columns == DatasetEnum.IPSW_X_TCF) or
                 (hasattr(x_columns, "__iter__") and iter_is_none(x_columns))  # if x is iterable that contains nothing
@@ -1018,7 +1006,8 @@ class DataframeManager:
         """
         return self.x_data(train, x_columns=[self.e_column], copy=copy)
 
-    def get_ipsw(
+
+    def x_y(
             self,
             train: Optional[
                 Union[
@@ -1026,25 +1015,6 @@ class DataframeManager:
                     pd.DataFrame
                 ]
             ],
-            copy: bool = True
-    ) -> pd.DataFrame:
-        """
-        attempts to return IPSW column data (if exists)
-        :param train: should we use the training set, the test set, or the full data?
-            if a dataframe, just use that dataframe.
-            if None, use the full dataframe.
-            if true, return data from the training set indices.
-            if false, return data from the test set indices.
-        :param copy: do we want a copy of the dataset?
-        :return: the appropriate dataframe but only the e column of it.
-        """
-        if self.ipsw_column not in self._full_dataframe.columns:
-            raise ValueError(f"There is no {self.ipsw_column} (IPSW scores) column in the dataframe!")
-        return self.x_data(train, x_columns=[self.ipsw_column], copy=copy)
-
-    def x_y(
-            self,
-            train: Optional[bool],
             x_columns: Optional[
                 Union[
                     Iterable[str],
@@ -1066,7 +1036,7 @@ class DataframeManager:
             If an iterable of strings are given, we use those X columns
             If None or empty, treat it as DatasetEnum.X
             If DatasetEnum:
-                X -> self.x_columns
+                X_Y -> self.x_columns
                 FACTUAL -> self.xt_columns
                 COUNTERFACTUAL -> self.xt_counterfactual_columns
                 T0 -> self.x_columns + (t=0)
@@ -1075,7 +1045,7 @@ class DataframeManager:
             If None, defers to x_columns parameter if x_columns is a DatasetEnum (else self.y_column).
             If a string, returns the column with that name.
             If a DatasetEnum:
-                X -> self.ite_column
+                X_Y -> self.y_column
                 FACTUAL -> self.y_column
                 COUNTERFACTUAL -> self.y_cf_column
                 T0 -> self.t0_column
@@ -1094,13 +1064,9 @@ class DataframeManager:
 
         if not isinstance(y_column, str):
             y_missing: bool = True
-            if y_column == DatasetEnum.FACTUAL:
+            if y_column == DatasetEnum.FACTUAL or y_column == DatasetEnum.X_Y:
                 y_column = self.y_column
                 y_missing = False
-            elif y_column == DatasetEnum.X:
-                if self.ite_column is not None:
-                    y_missing = False
-                    y_column = self.ite_column
             elif y_column == DatasetEnum.X_T:
                 y_missing = False
                 y_column = self.t_column
@@ -1127,19 +1093,20 @@ class DataframeManager:
 
         assert isinstance(y_column, str)
 
-        the_data: pd.DataFrame = self.get_df(
-            train,
-            False
-        )
+        if train is None or not isinstance(train, pd.DataFrame):
+            train = self.get_df(
+                train,
+                False
+            )
 
         return (
             self.x_data(
-                the_data,
+                train,
                 x_columns,
                 copy
             ),
             isolate_this_column(
-                full_dataframe=the_data,
+                full_dataframe=train,
                 isolate_this=y_column,
                 remove_that_column=False,
                 copy=copy
@@ -1178,28 +1145,17 @@ class DataframeManager:
         )
 
     def save_self(
-            self,
-            save_as: Optional[str] = None
+            self
     ) -> bool:
         """
-        Pickles this object.
-        :param save_as: filename to pickle this to.
-            If not specified, will default to
-              `os.getcwd() + f"\\{self.dataset_name}\\{self.dataset_name} DataframeManager.pickle"`.
-            If it doesn't end in '.pickle', '.pickle' will be appended to it.
+        Pickles this object, as `os.getcwd() + f"\\{self.dataset_name}\\{self.dataset_name} DataframeManager.pickle"`.
         :return: true if this could be specified, false otherwise.
         """
 
-        if save_as is None:
-            save_as = os.getcwd() + f"\\{self.dataset_name}\\{self.dataset_name} DataframeManager"
-        save_as = save_as.strip()
-        if not save_as.endswith(".pickle"):
-            save_as = f"{save_as}.pickle"
+        rel_pos: str = f"\\{self.dataset_name}\\{self.dataset_name} DataframeManager.pickle"
 
-        success: bool = False
-
-        print(f"pickling self as {save_as}...")
-        with open(save_as, "wb") as the_file:
+        print(f"pickling self as {rel_pos}...")
+        with open(f"{os.getcwd()}{rel_pos}", "wb") as the_file:
             pickle.dump(self, the_file)
             print("pickled!")
             success = True
@@ -1219,10 +1175,4 @@ class DataframeManager:
 
         return loaded
 
-    def record_ipsw_info(
-            self,
-            ipws_data: np.ndarray
-    ) -> NoReturn:
-
-        self._full_dataframe[self.ipsw_column] = ipws_data
 
