@@ -6,7 +6,6 @@ miscellaneous utilities
 from __future__ import annotations
 
 from itertools import chain
-import numpy as ndarray
 
 from typing import List, Tuple, TextIO, Dict, Iterable, Iterator, Union, Optional, Literal, NoReturn, TypeVar, Any
 

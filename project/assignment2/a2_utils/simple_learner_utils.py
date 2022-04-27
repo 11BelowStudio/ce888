@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import pandas as pd
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -15,17 +14,13 @@ from shutil import rmtree
 from typing import List, Tuple, Dict, Iterable, Iterator, TypeVar, Union, Optional, NoReturn, Any, Callable
 
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_score
-from sklearn.model_selection._validation import NotFittedError
 from sklearn.base import RegressorMixin, TransformerMixin, ClassifierMixin
-from sklearn.linear_model import ARDRegression
-from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor
 from sklearn.preprocessing import QuantileTransformer, StandardScaler
 from sklearn.impute import KNNImputer
-from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.pipeline import Pipeline
 from sklearn import set_config
-from sklearn.metrics import r2_score, make_scorer
 from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import HalvingGridSearchCV, GridSearchCV
+from sklearn.model_selection import HalvingGridSearchCV
 
 from sklearn.metrics import r2_score, roc_auc_score
 
@@ -43,9 +38,6 @@ import dataclasses
 import os
 import sys
 
-from inspect import ismethod, getmembers
-
-import traceback
 
 import sklearn
 

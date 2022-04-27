@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import econml
 
-import pandas as pd
 
 import matplotlib.pyplot as plt
-import matplotlib
 import pandas as pd
-import sklearn as sk
 import numpy as np
 
 from typing import List, Tuple, Dict, Iterable, Iterator, TypeVar, Union, Optional, NoReturn, Any, Callable, ClassVar, \
@@ -28,8 +24,6 @@ from assignment2.a2_utils.simple_learner_utils import PP, PPipeline
 
 from sklearn.base import RegressorMixin, ClassifierMixin, clone
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.preprocessing import QuantileTransformer
-from sklearn.impute import KNNImputer
 
 import shap
 from shap._explanation import Explanation

@@ -17,3 +17,7 @@ to run it. When you start running the notebook, it will attempt to install all o
 other dependencies for you, so you don't need to worry about doing that.
 
 Alternatively, if you want the raw LaTeX files, please go to project/assignment1_report/
+
+
+If you're here for assignment 2, the assignment 2 notebooks are in /project/assignment2/,
+and the report for that (along with the LaTeX files) are in /project/ass2report/

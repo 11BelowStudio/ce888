@@ -21,7 +21,6 @@ import sys
 import dataclasses
 from functools import cached_property
 
-from itertools import chain
 
 from enum import Enum, auto
 
