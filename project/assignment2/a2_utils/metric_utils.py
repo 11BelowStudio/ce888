@@ -106,7 +106,7 @@ def policy_risk(effect_pred: np.ndarray, yf: np.ndarray, t: np.ndarray, e: Optio
     return 1.0 - policy_value
 
 
-def get_ps_weights(clf, x, t) -> np.ndarray:
+def get_ps_weights(clf, x, t) -> np.ndarray:  # nicked from lab 4 work
     ti = np.squeeze(t)
     clf.fit(x, ti)
     ptx = clf.predict_proba(x).T[1].T + 0.0001  # add a small value to avoid dividing by 0

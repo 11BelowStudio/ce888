@@ -19,7 +19,7 @@ from sklearn.model_selection._validation import NotFittedError
 from sklearn.base import RegressorMixin, TransformerMixin, ClassifierMixin
 from sklearn.linear_model import ARDRegression
 from sklearn.ensemble import RandomForestRegressor, AdaBoostRegressor
-from sklearn.preprocessing import QuantileTransformer
+from sklearn.preprocessing import QuantileTransformer, StandardScaler
 from sklearn.impute import KNNImputer
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn import set_config
@@ -62,13 +62,18 @@ warnings.filterwarnings("ignore")
 set_config(display="diagram")
 
 R = TypeVar('R', bound=RegressorMixin)
+"Any regressor"
 
 C = TypeVar('C', bound=ClassifierMixin)
+"Any classifier"
 
-EST = Union[R, C]
+E = TypeVar('E', bound=sklearn.base.BaseEstimator)
 
-PP = Union[R, C, "PPipeline"]
+EST = Union[R, C, E]
+"Anything that's a regressor or a classifier or a BaseEstimator"
 
+PP = Union[EST, "PPipeline"]
+"Anything that's a regressor, a classifier, or is a PPipleline"
 
 
 class PPipeline(Pipeline):
@@ -78,6 +83,44 @@ class PPipeline(Pipeline):
 
     def __init__(self, steps: List[Tuple[str, Any]], *, memory=None, verbose: bool = False):
         super().__init__(steps, memory=memory, verbose=verbose)
+
+    @classmethod
+    def make(cls, estimator: PP, *, memory=None, verbose: bool = False) -> "PPipeline":
+        """
+        Creates this pipeline, with a quantile transformer at the front, then a KNN imputer, then the estimator
+        :param estimator: the estimator you want to use
+        :param memory:
+        :param verbose:
+        :return: the constructed PPipeline
+        """
+        return cls(
+            steps=[
+                ("scaler", QuantileTransformer(output_distribution="normal")),
+                ("imputer", KNNImputer(add_indicator=False, weights="distance")),
+                ("estimator", estimator)
+            ],
+            memory=memory,
+            verbose=verbose
+        )
+
+    @classmethod
+    def make_simpler(cls, estimator: PP, *, memory=None, verbose: bool = False) -> "PPipeline":
+        """
+        Creates this pipeline, with a quantile transformer at the front, then a KNN imputer, then the estimator
+        :param estimator: the estimator you want to use
+        :param memory:
+        :param verbose:
+        :return: the constructed PPipeline
+        """
+        return cls(
+            steps=[
+                ("scaler", StandardScaler()),
+                ("imputer", KNNImputer(add_indicator=False, weights="distance")),
+                ("estimator", estimator)
+            ],
+            memory=memory,
+            verbose=verbose
+        )
 
     def _fit(self, X, y=None, **fit_params_steps):
         """
@@ -878,67 +921,6 @@ def factor_tester(split_this: int, factor: int, tally: int = 0) -> Tuple[int, in
         return split_this, tally
 
 
-"""
-def simple_halving_grid_searcher(
-        estimator: EST,
-        param_grid: Dict[str, List[Any]],
-        train_data: np.ndarray,
-        train_targets: np.ndarray,
-        k_folds: Union[KFold, Iterable[Tuple[np.ndarray, np.ndarray]]] = KFold(n_splits=10, shuffle=False),
-        sample_weights: Optional[np.ndarray] = None,
-        resource: str = "n_samples"
-) -> HalvingGridSearchCV:
-
-    pipe: PPipeline = PPipeline(steps=[
-        ("scaler", QuantileTransformer(output_distribution="normal")),
-        ("imputer",KNNImputer(add_indicator=False, weights="distance")),
-        ("estimator", estimator)
-    ])
-
-    n_splits: int = k_folds.get_n_splits() if isinstance(k_folds, skl.model_selection.BaseCrossValidator) else len(k_folds)
-
-    n_max_resources: int = train_targets.size if resource == "n_samples" else pipe.get_params(deep=True)[resource]
-
-    min_res, factor = factor_finder(n_max_resources) #w_h_finder(n_max_resources)
-
-    print(f"max: {n_max_resources}, min: {min_res}, factor: {factor}")
-
-    h_grid_search: HalvingGridSearchCV = HalvingGridSearchCV(
-        estimator=pipe,
-        param_grid=param_grid,
-        factor=factor,
-        cv=k_folds,
-        scoring=make_scorer(r2_score),
-        refit=True,
-        verbose=1,
-        n_jobs=-1,
-        aggressive_elimination=True,
-        error_score=-1000000000000,
-        # I wanted to make this error score negative infinity, however, doing so caused a lot of
-        # particularly unsightly warning messages to appear.
-
-        # So, to save everyone involved from having to look at at a buttload of them with a buttload of numbers in them,
-        # I'm just setting this to an incredibly low finite number which should be rather hard to reach.
-        # And if this score (or an even lower score) somehow is reached legitimately, chances are that
-        # the legitimate score being lower than the error score will be the least of one's concerns.
-        resource=resource,
-        max_resources= n_max_resources,
-        min_resources= min_res #n_max_resources//4
-    )
-
-    if class_weights is not None:
-
-        h_grid_search.fit(
-            train_data, train_targets, sample_weight=class_weights
-        )
-    else:
-        h_grid_search.fit(
-            train_data, train_targets
-        )
-
-    return h_grid_search
-"""
-
 
 def r2_score_id() -> Literal["r2"]:
     """:return: 'r2', the string identifier for the r2 scoring function"""
@@ -956,19 +938,19 @@ class IpswWrapper:
     convenience object for the IPSW calculation things
     """
 
-    ipsw_clf: ClassifierMixin
+    ipsw_clf: PP
 
     dataset_name: str
 
     @classmethod
     def make(
             cls,
-            ipsw_clf: Union[ClassifierMixin, PPipeline],
+            ipsw_clf: PP,
             dataset_name: str
     ) -> "IpswWrapper":
         # noinspection PyTypeChecker
         return cls(
-            ipsw_clf = sklearn.base.clone(ipsw_clf),
+            ipsw_clf=sklearn.base.clone(ipsw_clf),
             dataset_name=dataset_name
         )
 
@@ -1057,11 +1039,7 @@ def simple_halving_grid_searcher(
 
         print(f"-- 10-fold attempt {i}/{len(resource_param_values)} start --")
 
-        pipe: PPipeline = PPipeline(steps=[
-            ("scaler", QuantileTransformer(output_distribution="normal")),
-            ("imputer", KNNImputer(add_indicator=False, weights="distance")),
-            ("estimator", estimator)
-        ])
+        pipe: PPipeline = PPipeline.make(estimator=estimator)
 
         if not resource_is_samples:
             pipe.set_params(**{resource: max_res})

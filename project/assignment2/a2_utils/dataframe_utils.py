@@ -503,6 +503,12 @@ class DatasetEnum(Enum):
     T1 = auto()
     "represents 'getting the x = (x + (t=1)) and y = y(t1)' data"
 
+    X_ITE = auto()
+    "represents getting x=x, y=ITE"
+
+    X_E = auto()
+    "represents getting x=x, y=e"
+
     IPSW_X_TCF = auto()
     """
     Inverse propensity weighting: the INVERSE of whether an individual will be assigned to the treatment group;
@@ -658,8 +664,6 @@ class DataframeManager:
     e_column: str
     "name of E (is individual from experiment group or control group?) column"
 
-
-
     @classmethod
     def make(
             cls,
@@ -727,6 +731,30 @@ class DataframeManager:
         )
 
     @cached_property
+    def e1_dataframe(self) -> "DataframeManager":
+        """:return: a DataframeManager for the subset of this dataframe where e=1"""
+        if np.all(self._full_dataframe[self.e_column].to_numpy().flatten() == 1):
+            return self
+
+        return DataframeManager.make(
+            dataset_name=self.dataset_name,
+            the_df=self.full_dataframe.loc[self.full_dataframe[self.e_column] == 1],
+            test_proportion=self.test_proportion,
+            split_randomstate=seed(),
+            columns_for_training_stratification=[self.t_column, self.y_column] if self.y_binary else [self.t_column],
+            t_column=self.t_column,
+            t_cf_column=self.t_cf_column,
+            y_column=self.y_column,
+            e_column=self.e_column,
+            ycf_column=self.ycf_column,
+            t0_column=self.t0_column,
+            t1_column=self.t1_column,
+            ite_column=self.ite_column
+        )
+
+
+
+    @property
     def full_dataframe(self) -> pd.DataFrame:
         """:return: a copy of the full dataframe"""
         return self._full_dataframe.copy()
@@ -770,6 +798,7 @@ class DataframeManager:
 
     @property
     def y_binary(self) -> bool:
+        """:return: true if Y has 2 (or fewer) discrete values"""
         return self._full_dataframe[self.y_column].nunique() < 3
 
     @cached_property
@@ -863,7 +892,7 @@ class DataframeManager:
 
     def get_df(
             self,
-            train: bool,
+            train: Optional[bool],
             copy: bool = True
     ) -> pd.DataFrame:
         """
@@ -938,6 +967,8 @@ class DataframeManager:
                 (x_columns == DatasetEnum.X_Y) or
                 (x_columns == DatasetEnum.X_T) or
                 (x_columns == DatasetEnum.IPSW_X_TCF) or
+                (x_columns == DatasetEnum.X_ITE) or
+                (x_columns == DatasetEnum.X_E) or
                 (hasattr(x_columns, "__iter__") and iter_is_none(x_columns))  # if x is iterable that contains nothing
         ):
             xdata = isolate_these_columns(
@@ -1006,7 +1037,6 @@ class DataframeManager:
         """
         return self.x_data(train, x_columns=[self.e_column], copy=copy)
 
-
     def x_y(
             self,
             train: Optional[
@@ -1073,6 +1103,9 @@ class DataframeManager:
             elif y_column == DatasetEnum.IPSW_X_TCF:
                 y_missing = False
                 y_column = self.t_cf_column
+            elif y_column == DatasetEnum.X_E:
+                y_missing = False
+                y_column = self.e_column
             elif y_column == DatasetEnum.COUNTERFACTUAL:
                 if self.ycf_column is not None:
                     y_missing = False
@@ -1085,6 +1118,10 @@ class DataframeManager:
                 if self.t1_column is not None:
                     y_missing = False
                     y_column = self.t1_column
+            elif y_column == DatasetEnum.X_ITE:
+                if self.ite_column is not None:
+                    y_missing = False
+                    y_column = self.ite_column
 
             if y_missing:
                 raise ValueError(
@@ -1115,7 +1152,7 @@ class DataframeManager:
 
     def get_kfold_indices(
             self,
-            train: Optional[bool] = True,
+            train: Optional[Union[bool, pd.DataFrame]] = True,
             random_state: RNG = seed(),
             class_columns: Iterable[str] = ("t", "e"),
             n_splits: int = 10,
@@ -1132,6 +1169,8 @@ class DataframeManager:
         """
         if train is None:
             train: pd.DataFrame = self.full_dataframe
+        elif isinstance(train, pd.DataFrame):
+            train: pd.DataFrame = train
         elif train:
             train: pd.DataFrame = self.train_df
         else:
@@ -1166,6 +1205,11 @@ class DataframeManager:
     def load(
             filename: str
     ) -> "DataframeManager":
+        """
+        Loads a pickled DataframeManager instance
+        :param filename: filename of the thing to load
+        :return: the loaded previously-picked DataframeManager.
+        """
 
         loaded: "DataframeManager"
         with open(filename, "rb") as the_file:
