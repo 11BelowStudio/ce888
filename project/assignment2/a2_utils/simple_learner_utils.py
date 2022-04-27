@@ -46,6 +46,8 @@ from functools import cached_property
 
 import pickle
 
+import shap
+
 
 
 import warnings
@@ -237,6 +239,9 @@ def get_permutation_importances(
     return importance_df
 
 
+
+
+
 @dataclasses.dataclass(init=True, eq=True, repr=True, frozen=True)
 class SimpleHalvingGridSearchResults:
 
@@ -362,6 +367,7 @@ class SimpleHalvingGridSearchResults:
     def __lt__(self, other: "SimpleHalvingGridSearchResults") -> bool:
 
         if self.validation_fold_score < other.validation_fold_score:
+            # lower score = worse
             return True
         elif self.validation_fold_score == other.validation_fold_score:
 
@@ -372,12 +378,7 @@ class SimpleHalvingGridSearchResults:
                 elif self.pehe < other.pehe:
                     return False
 
-            if self.has_policy_risk and other.has_policy_risk:
-                # lower policy_risk is better, so, the one with a larger policy_risk is considered 'less than'.
-                if self.policy_risk > other.policy_risk:
-                    return True
-                elif self.policy_risk < other.policy_risk:
-                    return False
+
 
             if self.has_counterfactual_score and other.has_counterfactual_score:
                 if self.ycf_score < other.ycf_score:
@@ -496,6 +497,39 @@ class SimpleHalvingGridSearchResults:
         fig.savefig(
             fname=f"{os.getcwd()}{rel_filename}"
         )
+
+        return fig
+
+    @property
+    def _shap_explainer(self) -> shap.Explainer:
+        return shap.PermutationExplainer(
+            model=self.searched.best_estimator_.predict,
+            masker=self.predictions.iloc[:, self.predictions.columns.isin(self.x_t_column_names)],
+            feature_names=self.x_t_column_names
+        )
+
+
+    @cached_property
+    def _shap_values(self) -> shap.Explanation:
+        return self._shap_explainer(self.predictions.iloc[:, self.predictions.columns.isin(self.x_t_column_names)].loc[self.test_indices])
+
+    def shap_importance_plotter(self) -> plt.Figure:
+
+        shap.summary_plot(
+            self._shap_values,
+            plot_size=(16, 16),
+            cmap="coolwarm",
+            show=False,
+            max_display=len(self.x_t_column_names)
+        )
+        fig: plt.Figure = plt.gcf()
+        fig.suptitle(f"SHAP values (effect on Y) for each feature in {self.dataset_name}")
+        fig.set_tight_layout(tight=True)
+
+        save_here: str = f"{self.dataset_name}\\{self.dataset_name} SHAP values for {self.learner_name}.pdf"
+
+        print(f"Saving SHAP figure to {save_here}...")
+        fig.savefig(fname=f"{os.getcwd()}\\{save_here}")
 
         return fig
 
@@ -625,6 +659,11 @@ class SimpleHalvingGridSearchResults:
             n_repeats=10,
             random_state=seed()
         )
+
+
+
+
+
 
         this_x_y[yf_column] = searcher.predict(
             this_x.to_numpy()
@@ -1067,7 +1106,7 @@ def simple_halving_grid_searcher(
             _x, _t = df_utils.x_y_splitter(
                 train_data,
                 x_columns=df_m.x_columns,
-                y_column=df_m.y_column
+                y_column=df_m.t_column
             )
 
             current_search.fit(
