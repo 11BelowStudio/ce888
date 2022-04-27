@@ -74,10 +74,9 @@
 \tikzstyle{tRect} = [rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
 
 \title{%
-    Evaluating Effective Interventions on Individuals in Infelicitous Eventualities\\
-    \large An initial proposal report discussing a pair of Causal Inference tasks\\
-    and a proposed approach for solving these two problems.
-    }
+    Evaluated Effective Interventions on Individuals in Infelicitous Eventualities\\
+    \large An attempt at solving a pair of Causal Inference problems.
+}
 \author{2100816}
 \begin{document}
 \maketitle
@@ -116,7 +115,7 @@
 
 
 
-\begin{abstract}
+\begin{Executive Summary}
 This document is the formal proposal document for a causal inference investigation
 into the the IHDP\cite{Gross1993} \cite{BROOKSGUNN1992350} and JOBS\cite{JOBS_LaLonde}\cite{JOBS2}\cite{ASMITH2005305} datasets.
 
@@ -129,7 +128,7 @@ shall be achieved.
 The preliminary investigation has identified some potential roadblocks for the latter parts of the
 investigation, which could pose a few barriers to the potential for meaningful conclusions to be
 reached, however, these are not insurmountable.
-\end{abstract}
+\end{Executive Summary}
 
 
 \section{Introduction}
@@ -349,8 +348,7 @@ indicates the outcome.
 Due to the binary nature of `y`, it is possible to approach some aspects of this dataset
 from the perspective of a classification rather than a regression approach, meaning that
 we could use classification-based metrics, such as logistical loss to estimate the accuracy
-of `y` estimators.
-\cite{sklearnmetricsloglossscikitlearn102documentation}
+of `y` estimators.\cite{sklearnmetricsloglossscikitlearn102documentation}
 
 For measuring any Conditional Average Treatment Effects, the lack of counterfactuals
 requires either a Policy Loss metric (as explained in \cite{CE888_project_causality}),
@@ -363,6 +361,14 @@ Therefore, Policy Loss shall have to be used instead.
 
 
 \section{Methodology}
+
+\FloatBarrier
+
+This research followed a rather simple methodology, nearly identical for each dataset (besides a few specifics).
+
+\subsection{Loading the data}
+
+The data for each dataset was read from the same .npz files as they were read from for the proposal
 
 \subsection{Preparing the learners}
 
@@ -415,8 +421,7 @@ Obtaining these importances is slightly
 more convoluted with the `ARDRegressor`, however, there is a workaround to obtaining these.
 Despite the necessity of this workaround, the `ARDRegressor`, being a Relevance Vector Machine,
 aims to perform regression by trying to weight the inputs based on evidence maximization,
-in turn indirectly providing feature importances, without relying as much on a random seed.
-\cite{Fletcher10relevancevector}\cite{sklearnlinearmodelARDRegressionscikitlearn102documentation}
+in turn indirectly providing feature importances, without relying as much on a random seed.\cite{Fletcher10relevancevector}\cite{sklearnlinearmodelARDRegressionscikitlearn102documentation}
 The `AdaBoostRegressor` is an extension of these; effectively applying multiple instances of
 the same regressor to the problem, weighting each one appropriately to catch the cases which
 were missed by the previous regressors within the ensemble.
