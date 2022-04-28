@@ -1136,6 +1136,31 @@ def simple_halving_grid_searcher(
 
     return results
 
+
+
+
+def shap_importance_plotter(res: SimpleHalvingGridSearchResults) -> plt.Figure:
+
+    shap.summary_plot(
+        res._shap_explainer(res.predictions.iloc[:, res.predictions.columns.isin(res.x_t_column_names)]),
+        plot_size=(16, 16),
+        cmap="coolwarm",
+        show=False,
+        max_display=len(res.x_t_column_names)
+    )
+    fig: plt.Figure = plt.gcf()
+    fig.suptitle(f"SHAP values (effect on Y) for each feature in {res.dataset_name}")
+    fig.set_tight_layout(tight=True)
+
+    save_here: str = f"{res.dataset_name}\\{res.dataset_name} SHAP values for {res.learner_name}.pdf"
+
+    print(f"Saving SHAP figure to {save_here}...")
+    fig.savefig(fname=f"{os.getcwd()}\\{save_here}")
+
+    return fig
+
+
+
 """
 
     for i, (train_indices, test_indices) in enumerate(the_splits, 1):
