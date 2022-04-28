@@ -500,7 +500,7 @@ class SimpleHalvingGridSearchResults:
 
         return fig
 
-    @property
+    @cached_property
     def _shap_explainer(self) -> shap.Explainer:
         return shap.PermutationExplainer(
             model=self.searched.best_estimator_.predict,
@@ -513,10 +513,14 @@ class SimpleHalvingGridSearchResults:
     def _shap_values(self) -> shap.Explanation:
         return self._shap_explainer(self.predictions.iloc[:, self.predictions.columns.isin(self.x_t_column_names)].loc[self.test_indices])
 
-    def shap_importance_plotter(self) -> plt.Figure:
+    @cached_property
+    def _all_shap(self) -> shap.Explanation:
+        return self._shap_explainer(self.predictions.iloc[:, self.predictions.columns.isin(self.x_t_column_names)])
+
+    def shap_importance_plotter(self, all: bool = False) -> plt.Figure:
 
         shap.summary_plot(
-            self._shap_values,
+            self._all_shap if all else self._shap_values,
             plot_size=(16, 16),
             cmap="coolwarm",
             show=False,
@@ -659,10 +663,6 @@ class SimpleHalvingGridSearchResults:
             n_repeats=10,
             random_state=seed()
         )
-
-
-
-
 
 
         this_x_y[yf_column] = searcher.predict(
