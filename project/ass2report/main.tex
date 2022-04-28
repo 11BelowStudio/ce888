@@ -74,7 +74,7 @@
 \tikzstyle{tRect} = [rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
 
 \title{%
-    Evaluated Effective Interventions on Individuals in Infelicitous Eventualities\\
+    Evaluated Effectiveness of Interventions for Individuals in Infelicitous Eventualities\\
     \large An attempt at solving a pair of Causal Inference problems.
 }
 \author{2100816}
@@ -98,8 +98,8 @@
     \begin{tabular}{lc}
         Executive summary (max.\ 250 words) & \textcolor{red}{??}\\
         Introduction (max.\ 600 words) & \textcolor{red}{??}\\
-        Data (max.\ 300 words/dataset) & \textcolor{red}{\textit{(?? + ??)} = ??}\\
-        Methodology (max.\ 600 words) & \textcolor{red}{??}\\
+        Data (max.\ 300 words/dataset) & \textcolor{red}{\textit{353}}\\
+        Methodology (max.\ 600 words) & \textcolor{red}{600}\\
         Results and Discussion (max.\ 1000 words combined) & \textcolor{red}{Your word count}\\
         Conclusions (max.\ 500 words) & \textcolor{red}{??}\\
         \hline
@@ -194,167 +194,49 @@ effective intervention.
 
 \section{Data}
 
+\subsection{High-level overviews}
+
+\quoteON
+
+
+Both datasets contain `x` background information (all numeric, various scales),
+factual treatment `t` (0 or 1), and factual `y` outcome data (`yf` in `IHDP`, `y` in `JOBS`).
+This permits all evaluations of
+`yf` predictions given `x` and `t`, along with `t` predictions given `x`.
+`JOBS` contains experimental and observational data, with experimental samples indicated in
+an `e` column. `IHDP` does not explicitly contain this; however, `IHDP` only contains experimental data,
+meaning that we can consider `e=1` for all of it. This permits 'absolute treatment effect
+on the  treated' and 'policy risk' evaluations on both datasets.
+
 
 \subsection{IHDP - The Infant Health Development Program}
 
-\FloatBarrier
-
-\quoteON
-
-`IHDP` consists of real data regarding the effects of providing additional support to the
-families who had premature babies on the development of aforementioned babies, measured
-through the means of IQ tests\cite{Gross1993}\cite{BROOKSGUNN1992350}. The version of this
-dataset used in this task contains factual and (simulated) counterfactual data; however,
-I shall only use the counterfactual data for evaluating fully trained models.
-
-
-This dataset concerns a population of 750 individuals, all of whom have 25 \texttt{x} values,
-a \texttt{t} value indicating whether they were in the treatment/control group, as well as
-a factual \texttt{yf} value (indicating the true \texttt{y} value recorded from that individual
-during the experiment), and a counterfactual \texttt{ycf} value (derived via a simulation,
-simulating the outcome for that individual if they were in the opposite treatment/control group to
-the group they actually were in). There is also an \texttt{ite} value, providing the individual
-treatment effect for the individuals. The \texttt{y} values are continuous values.
-
-
-A visualization of this dataset can be seen in \ref{fig:ihdpgraphs} (along with an overview
-of the factual data within \ref{fig:ihdpfact}, and of the counterfactual data within \ref{fig:ihdpcf}).
-
-
-Of the 25 'x' values, 6 of them are in a continuous range, whilst the other 19 are binary.
-One of these non-binary 'x' values, \texttt{x3} , appears to be limited to one of four discrete
-values; however, as I have been unable to conclusively find out what \texttt{x3} truly means,
-and as that means it could possibly have a different value, I shall not normalize that into
-discrete values, to allow leeway for potential future data, which may have a different value.
-
-
-\begin{figure}[htb]
-\centering
-    \includegraphics[width=0.9\textwidth]{project/data/ihdp_heatmap.pdf}
-    \caption{
-        \label{fig:ihdp_correlation}Correlation heatmap for the IHDP dataset
-    }
-    \small{
-        This annotated heatmap shows the correlation coefficients for the values in each
-        column of the IHDP dataset (along with additional \texttt{t0} and \texttt{t1} columns). 
-        \texttt{t0} contains the \texttt{y} values for each individual for the case
-        where \texttt{t=0}, and vice versa for \texttt{t1} (with these columns being included
-        for ease of looking at overall treatment/control outcomes).
-        
-        There isn't much clear correlation between the values of each column in this dataset,
-        barring a few outliers.
-        
-        There is a rather strong positive correlation between \texttt{t} and \texttt{yf} (with a
-        slightly stronger negative \texttt{t}/\texttt{ycf} correlation), indicating that
-        being in the treatment group correlates to a higher \texttt{y}, but whether or not this
-        is due to causation does need to be investigated further.
-    }
-\end{figure}
-
-
-Figure \ref{fig:ihdp_correlation} indicates a lack of much correlation in this dataset,
-barring a few notably higher correlations.
-
-There is a rather strong negative
-correlation between \texttt{x5} and \texttt{ite} (and, in extension,
-\texttt{x5}'s relation to \texttt{t0} and \texttt{t1}), to see if this correlation
-truly indicates whether a higher \texttt{x5} can cause the treatment to have an
-unintended effect. This correlation is also illustrated in Figure \ref{fig:ihdpgraphs},
-showing this strong downward trend. However, looking at the \texttt{x5}
-data in Figure \ref{fig:ihdpfact}, we can see some individuals with high \texttt{x5}
-values in the untreated group achieved rather high \texttt{yf} scores (but only with a \texttt{x5}
-and \texttt{yf} correlation of 0.36), so one could argue that the negative ITE correlation
-could be due to the counterfactual simulation not allowing similar \texttt{ycf}
-values to be reached (with counterfactuals illustrated in Figure \ref{fig:ihdpcf}).
-
-Other notable correlations include a strong negative correlation of -0.87 between \texttt{x3} and \texttt{x13}, indicating a potential causal link. A weaker positive correlation (0.68) is present
-between `x0` and `x1` (with slightly weaker negative correlations between those and `x2`).
-These correlations could be a sign of causation between these variables,
-or they could be an indicator of an external confounder, or perhaps neither, which justifies
-some further investigation.
-
-\subsubsection{The Causal Questions}
-
-\begin{enumerate}
-\item To what extent does each \texttt{x} predict \texttt{y}?
-\item To what extent does \texttt{t} predict \texttt{y}?
-\item To what extent do the \texttt{x} values predict each other?
-\item To what extent do the \texttt{x} values predict the \texttt{ite} values?
-\end{enumerate}
-
-\subsubsection{Metrics to use}
-
-As this dataset contains full counterfactual/ITE data, I am able to use Precision in
-Estimation of Heterogenous Effect ($\epsilon PEHE$) and Average Treatment Effect ($\epsilon ATE$)
-in order to measure the correctness of the learner's estimations of individual treatment
-effects\cite{CE888_causal}.
-
-
-\FloatBarrier
+`IHDP` comes from a study into the effects of providing additional support to families of premature
+babies on the development of the aforementioned babies, via IQ
+tests\cite{Gross1993}\cite{BROOKSGUNN1992350}. The `yf` values from this dataset come from this study,
+whilst the counterfactual `ycf` values were simulated. These `y` values are continuous, meaning that a
+regression approach would be appropriate for this dataset. From the abstract given for this dataset,
+the data collection strategy was somewhat comprehensive; however, I do not know if these
+features are all present in the provided `IHDP` data. It appears that `t` assignments were random,
+but stratified on birth weight, but children with a weight over 2.5kg were ineligible for
+treatment\cite{Gross1993}. None of the provided features appear to indicate birth weight directly,
+so this may be an unknown confounder.
 
 \subsection{JOBS}
+
+`JOBS` consists of data regarding job-seekers and their success in finding jobs, with the treatment `t`
+being whether or not an individual was provided with support in their job
+search\cite{JOBS_LaLonde}\cite{JOBS2}\cite{ASMITH2005305}. This data is a combination of observational
+(`e=0`) and experimental (`e=1`) data; however, only individuals in the experimental group were
+potentially able to receive the treatment, potentially working as a confounder. Additionally, in this
+study, the treatment was randomly assigned, but only to *qualified* individuals who applied to
+the program\cite{JOBS_LaLonde}; these barriers to entry, despite being minor, will have had
+a somewhat confounding effect on treatment assignment, and may have an impact on the outcomes as
+well. As the outcome `y` for this dataset is binary (1 or 0), a classification approach is appropriate.
+
 \FloatBarrier
+
 \quoteON
-
-`JOBS` contains data about 3212 jobseekers (`x`), whether or not they
-received support to get a job (`t`), and whether or not they were successful in
-gaining employment (`y`, with a value of 0 or 1)\cite{JOBS_LaLonde}\cite{JOBS2}\cite{ASMITH2005305}.
-There is no counterfactual data within this dataset, and the dataset is derived from experimental
-and observational data (with this being denoted by `e`).
-This dataset is incredibly unbalanced, with only 297 individuals being in the treatment group,
-and only 482 individuals with `y=0`, which will pose some problems with regards to avoiding
-overfitting.
-
-Furthermore, many of the `x` values are binary, with the non-binary `x` values having particularly
-extreme ranges (requiring the use of a log scale to graph those appropriately, as can be seen in Figure \ref{fig:jobsgraphs}),
-heavily necessitating some normalization before training is attempted. 
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=0.9\textwidth]{project/data/jobs_heatmap.pdf}
-\caption{\label{fig:jobs_correlation}Correlation heatmap for the JOBS dataset}
-\end{figure}
-
-Looking at the correlation heatmap for `JOBS` in figure \ref{fig:jobs_correlation},
-we can see that there is significant correlation within the dataset,
-with perfect positive correlation between `x0`,`x8`, and `x9`.
-`x1` and `x10` also have perfect positive correlation, along with
-`x11` and `x6`, and again with `x12` and `x7` (with many other sets of
-variables having imperfect yet rather high magnitudes of correlation).
-Upon looking at figure \ref{fig:jobsgraphs}, these identified areas
-of perfect correlation aren't particularly unbalanced, but all of them
-are `x` values where `x` is in a range, instead of being binary.
-Interestingly, there isn't any strong correlation between `y` and
-any other variable, whilst `t` and `y` have a weak negative correlation of
-$-0.07$, suggesting that the treatment doesn't have any bearing on the
-overall outcome. This implies the presence of some confounder having
-a stronger bearing on the `y` value, or that, if there is a causal
-relation between `x` and `y`, a combination of `x` values is what
-indicates the outcome.
-
-
-\subsubsection{The Causal Questions}
-
-\begin{enumerate}
-\item Does `t` have any meaningful effect on `y`?
-\item Do any `x` values meaningfully predict `y`? Do `t` or the other `x` values have an impact on this?
-\item Do any `x` values have a causal interrelationship?
-\item How can we measure the individual treatment effects due to a lack of counterfactuals?
-\end{enumerate}
-
-\subsubsection{Metrics to use}
-
-Due to the binary nature of `y`, it is possible to approach some aspects of this dataset
-from the perspective of a classification rather than a regression approach, meaning that
-we could use classification-based metrics, such as logistical loss to estimate the accuracy
-of `y` estimators.\cite{sklearnmetricsloglossscikitlearn102documentation}
-
-For measuring any Conditional Average Treatment Effects, the lack of counterfactuals
-requires either a Policy Loss metric (as explained in \cite{CE888_project_causality}),
-or a 'Average Treatment Effect on treated' metric\cite{CE888_causal}.
-However, as there are very few individuals who were treated, attempting to use the latter to
-assess performance on the full dataset is very likely to result in it being overfit.
-Therefore, Policy Loss shall have to be used instead.
 
 \FloatBarrier
 
@@ -363,113 +245,87 @@ Therefore, Policy Loss shall have to be used instead.
 
 \FloatBarrier
 
-This research followed a rather simple methodology, nearly identical for each dataset (besides a few specifics).
+This research followed a rather simple methodology, nearly identical for each dataset (besides a few 
+specifics). A RNG seed of 42 is used for everything that uses a random seed, for consistent
+experimental results\footnote{editable within /a2\_utils/seed\_utils.py}.
 
 \subsection{Loading the data}
 
-The data for each dataset was read from the same .npz files as they were read from for the proposal
+The data pre-preprocessing can be seen in the `datasets\_to\_csv.ipynb` notebook. This merely reads
+the datasets (presently in .npz) format, and converts them to .csv files, with labelled x column names,
+an extra `tcf` column (indicating the opposite of the treatment received by the individual), and. for the
+`IHDP` dataset, not only does the produced csv have a counterfactual y column, it also has a `t0` and
+`t1` column, holding the measured/simulated `y` outcome for the `t=0` and `t=1` case\footnote{taking it from the appropriate y column, given `t`.}
 
-\subsection{Preparing the learners}
+\subsection{Train/test splits}
 
-\FloatBarrier
+`IHDP` uses 10\% of the factual data in a held-out validation set, whilst `JOBS` uses 20\%.
+This is selected via stratification; in `IHDP`, this is stratified based on `t`, but in `JOBS`,
+this is stratified based on `y`, `e`, and `t`. `IHDP` uses a smaller sized factual validation set
+due to the smaller dataset size and due to counterfactuals all being in the validation set. 
 
-\quoteON
-
-Before starting any training of the machine learners, I shall split the datasets into a learning
-set (to use in training via K-fold cross validation) and a validation set.
-
-Furthermore, for sake of consistency, I shall use an RNG instance with a seed of 42 for the
-notebook, allowing reproducible results.
-
-I shall use all of the counterfactual data of `IHDP`, along with ~10\% of the factual data
-(aiming to stratify based on treatment/control and the ITE counterfactual data) as its validation set,
-leaving the remaining factual data available for k-fold cross validation training.
-
-For the JOBS dataset, I shall use 20\% of the full data as the validation set (20\% of treatment/control,
-aiming to stratify based on the outcomes), leaving the remaining 80\% for training/testing.
-
-When performing the testing, I shall be using scikit-learn's pipeline API, using pipelines with the structure
-explained in \ref{fig:pipeline}, for ease of re-running experiments, and using `GridSearchCV`
-to perform hyper-parameter tuning during K-fold training.
-
-\begin{figure}[htb]
-    \centering
-    \begin{tikzpicture}
-        \node[tRoundRect] (Start) {Data input};
-        \node[tRect] (QTrans) [below =of Start] {\texttt{QuantileTransformer}} edge [<-] (Start);
-        \node[tRect] (KNNImp) [right =of QTrans] {\texttt{KNNImputer}} edge [<-] (QTrans);
-        \node[tRect] (Learner) [right =of KNNImp] {The learner being trained} edge [<-] (KNNImp);
-        \node[tRoundRect] (Output) [above =of Learner] {Data output} edge [<-] (Learner);
-    \end{tikzpicture}
-    \caption{\label{fig:pipeline}Structure for the pipelines to be used for training}
-\end{figure}
-
-\FloatBarrier
-
-\subsection{Simple Learners}
+\subsection{non-CATE learners}
 
 \quoteON
 
-To obtain feature importances, I will attempt training a `RandomForestRegressor`,
-an `ARDRegressor`, and a couple of `AdaBoostRegressor`s (consisting of the aforementioned
-other regressors) to predict the `y` outcomes for individuals given their `x` attributes
-and whether or not they have been treated (using `GridSearchCV` to handle hyper-parameter
-optimization). The `RandomForestRegressor` shall be used due to how it conveniently provides a
-method for returning feature importances @\cite{sklearnensembleRandomForestRegressorscikitlearn102documentation}.
-Obtaining these importances is slightly
-more convoluted with the `ARDRegressor`, however, there is a workaround to obtaining these.
-Despite the necessity of this workaround, the `ARDRegressor`, being a Relevance Vector Machine,
-aims to perform regression by trying to weight the inputs based on evidence maximization,
-in turn indirectly providing feature importances, without relying as much on a random seed.\cite{Fletcher10relevancevector}\cite{sklearnlinearmodelARDRegressionscikitlearn102documentation}
-The `AdaBoostRegressor` is an extension of these; effectively applying multiple instances of
-the same regressor to the problem, weighting each one appropriately to catch the cases which
-were missed by the previous regressors within the ensemble.
-\cite{sklearnensembleAdaBoostRegressorscikitlearn102documentation}
+All of the non-CATE learners use `HalvingGridSearchCV` (with 10-fold cross-validation) to find 
+the optimal
+hyper-parameter configurations to maximise R2 scores on the training set (receiver operating
+characteristic area-under-curve for classifiers), and are then compared to each
+other based on their performance for that metric on the test set. Each of these learners are
+in a pipeline with a `QuantileTransformer` ahead of them, to ensure that the inputs to the learners
+are scaled within a reasonable range. The learners with the optimal hyper-parameter configurations
+for each task are then compared against each other, to find the optimal learner.
 
-The classification accuracy for this stage shall be assessed via `r2` scores,
-comparing the predicted `y` for the individual (from their `x` and `t`) to the factual `y` value.
-`r2` has been chosen due to how it provides a clear indicator of how good the estimator is compared
-to returning the expected `y` value (on top of how close the estimator is to returning 'true' `y`
-values), clearly indicating how good the predictions are.
-\cite{sklearnmetricsr2scorescikitlearn102documentation}
+Additionally, each of the optimally-configured learners have three versions of their feature importances
+plotted. There are bar graphs
+for the importances obtained by the `feature\_importances\_` properties of the learners which have them
+(using the `coeff\_` property of the learners which don't have `feature\_importances\_`) as well as the
+importances returned by `scikit-learn''s `permutation\_importance' method\cite{sklearn} (calculated on the test set).
+Furthermore, there is also a beeswarm plot, indicating the shapley values (relative impact on the output
+which each feature has depending on its value, plotted per-sample) for the learner, via the `SHAP` library\cite{shap}\footnote{In other words, it not only shows the importances of the features, but also how the higher/lower values of the features could have an impact on the output.}.
 
 
-\subsection{Propensity Score re-weighting}
+\subsubsection{Learners for Y given XT}
 
-\quoteON
+`RandomForestRegressor`, `ARDRegressor`, `SGDRegressor`, and `AdaBoostRegressor` instances\cite{sklearn} 
+(boosting each of the aforementioned produced learners) are trained for this task\footnote{Classifier versions are used instead for the JOBS dataset.}.
 
-Similar to the 'Simple Learners' stage, I shall try using the identified classification models
-to predict propensity scores for each dataset (by aiming to predict `t` given `x`), and then
-using the identified 'best' classifier to predict what class they will be in (and giving that
-to the Inverse Propensity Score function to produce the actual sample weights).
-Unfortunately, due to the `ARDRegressor` not supporting sample weights, I will need
-to replace it with a standard `BayesianRidge` regressor for this, but it has a similar end result
-\cite{sklearnlinearmodelBayesianRidgescikitlearn102documentation}.
+\subsubsection{Learners for T given X (IPSW learning)}
 
-I will then repeat the process outlined in 'Simple Learners' with these weighted models,
-and compare the results of the learners with weighted samples to the performance of the
-unweighted learners. 
+Instances of `RandomForestClassifier`, `SGDClassifier`, and `AdaBoostClassifier`\cite{sklearn} (boosting
+the aformentioned `RandomForestClassifier` instances) are trained for this task. This is constrained by
+the requirement for these learners to have a `predict\_proba` method for use with the propensity weight
+scoring method later on (hence the lack of `ARDClassifier`). In `JOBS`, these learners are only trained/
+evaluated (still using 10-fold cross-validation) on a train/test set consisting of the `e=1` samples,
+as the `e=0` samples all have `t=0`.
 
-\subsection{Advanced CATE estimators}
+\subsubsection{Learners for Y given X and IPSW weights}
 
-\quoteON
+Instances of `RandomForestRegressor`, `ARDRegressor`, `SGDRegressor`, and
+`AdaBoostRegressor`\cite{sklearn} (using the aforementioned instances) are trained, using the 'best'
+IPSW learner from the prior step to produce sample weights\footnote{Classifier versions are used instead for the JOBS dataset.}.
 
-I shall attempt to compare the performances of the 
-`XLearner`\cite{econmlmetalearnersXLearnereconml0130documentation},
-`CausalForestDML`\cite{econmldmlCausalForestDMLeconml0130documentation},
-and `ForestDRLearner`\cite{econmldrForestDRLearnereconml0130documentation}
-CATE models, implemented as part of EconML\cite{econml},
-giving them the 'best' trained propensity and y-prediction models,
-and evaluating their performances on predicting treatment effects.
+\subsection{CATE (Conditional Average Treatment Effect) estimators}
 
-Each of these models come from different categories of CATE model, thereby allowing
-different aspects of the conditional treatment effect to be modelled.
+`CausalForestDML`, `ForestDR`, `DMLIV`, and `ForestDRIV`\cite{econml} estimators are trained on the data,
+using the best `Y|X` (and `T|X` and `Y|XT`) learners produced earlier on in their construction. `IHDP`
+performance is assessed by Precision of Estimation of Heterogeneous treatment Effect, `JOBS` is assessed
+by the absolute Accuracy for Treatment effects on the Treated (due to no counterfactuals). Feature
+importances (shapley values\cite{shap}) are plotted for each `CATE` estimator, along with tree
+visualizations of how features affect the outputs, and policies for whether or not it would be best to
+treat/not treat an individual for the best outcome based on their X features\cite{shaptree}.
 
-During training, I shall evaluate the performances of these models on their 'policy risk'
-scores of the factual dataset (using the equation specified in the assignment brief)
-\cite{CE888_project_causality}. After training is done, I can evaluate the overall
-performance of the `IHDP` model via Precision in Estimated Heterogenous Effects,
-due to the presence of counterfactuals (which will not be possible for `JOBS`)\cite{CE888_causal}.
+\section{Results and Discussion}
+
+
+\subsection{IHDP}
+
+\subsubsection{Simple Learners}
+
+
+
+
 
 \section{Conclusions}
 
