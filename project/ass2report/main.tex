@@ -27,6 +27,10 @@
 \usepackage{tabularx}
 \usepackage{svg}
 
+\usepackage[demo]{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
 \usepackage[style=ieee]{biblatex}
 \addbibresource{sample.bib}
 
@@ -321,10 +325,89 @@ treat/not treat an individual for the best outcome based on their X features\cit
 
 \subsection{IHDP}
 
-\subsubsection{Simple Learners}
 
 
+\subsubsection{Simple Learners (`Y given XT`)}
 
+\FloatBarrier
+
+The learner with the best R2 score was the `RandomForestRegressor`, with an R2 score on the test
+set of 0.70. As can be seen from Figure \ref{fig:ihdpSimple}, the features with the strongest
+impact on the outcome appear to be `t`, `x5`, and `x14`, in that order. Looking at Figure \ref{fig:ihdpSimpleB}, `t=0` has a somewhat negative
+impact on the outcome, dwarfed by the positive effect of `t=1`. `x5` has a less
+obvious boundary for when the impacts turn positive, however, higher `x5` results in a higher `y`,
+whilst a lower `x5` results in a somewhat lower `y`, but the negative effects are less dramatic than
+the positives. `x14` appears to have no/negligibly negative impact on `y` when `x14=0`\footnote{x14 is a binary value (only 0 or 1), so blue=0, red=1}, with potential for a slightly less negligible positive
+impact when `x14=1`.
+
+The lack of any influence from the other features is somewhat unexpected.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp Random Forest simple feature importances.pdf}
+  \caption{Feature importances (from feature\_importances\_ and permutation\_test) for IHDP simple RandomForest}
+  \label{fig:ihdpSimpleA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp SHAP values for Random Forest simple.pdf}
+  \caption{Shapley values for the features as found by the IHDP Y|XT RandomForest predictor}
+  \label{fig:ihdpSimpleB}
+\end{subfigure}
+\caption{Feature importances found by the IHDP Y|XT learner}
+\label{fig:ihdpSimple}
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{IPSW learners (`T given X`)}
+
+\FloatBarrier
+
+The best estimator for `T|X` for `IHDP` was the SGD classifier, with a
+`ROC AUC`\footnote{Receiver Operator Characteristic Area Under Curve} score of 0.71 on the test set.
+The feature importances of this classifier (Figure \ref{fig:ihdpIPSW}) appear to be completely different 
+to the IHDP `Y|XT` regressor,
+with `x5` and `x14` having rather low importances, whilst several other features all compete to have
+the highest importance, with wildly fluctuating standard deviations for the importance predictions
+visible in Subfigure \ref{fig:ihdpIPSWA}. 
+
+The shapley values (Subfigure \ref{fig:ihdpIPSWB}) are somewhat more coherent;
+for all of the binary features, values of `0` and `1` have
+opposing impacts on the final `t` value\footnote{By this, I mean that 'for the ones where xN=0 has a negative effect, xN=1 has a positive effect, and vice versa'}. The continuous values are a bit more
+fuzzy in this regard, but they mostly follow this rule of 'bigger has opposite sign effect to smaller'.
+The only real exception is with `x3`; the high and slightly low values of `x3` have negative impacts,
+and only the particularly small `x3` values have a positive impact.
+
+Considering this unusual overlap, the rather high importance granted to `x3` in
+Subfigure \ref{fig:ihdpIPSWA}, and the fact that children with a birth weight above 2500g were not
+eligible for inclusion in the treatment group in the `IHDP` study \cite{Gross1993}, this suggests that
+`x3` might indicate 'birth weight'\footnote{With the higher x3 values resulting in a lower t due to the ineligibility for treatment. Then again, this is just conjecture}.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp SGD IPSW feature importances.pdf}
+  \caption{Feature importances (from feature\_importances\_ and permutation\_test) for IHDP IPSW SGD}
+  \label{fig:ihdpIPSWA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp SHAP values for sgd IPSW.pdf}
+  \caption{Shapley values for the features as found by the IHDP T|X SGD predictor}
+  \label{fig:ihdpIPSWB}
+\end{subfigure}
+\caption{Feature importances found by the IHDP T|X learner}
+\label{fig:ihdpIPSW}
+\end{figure}
+
+\FloatBarrier
+
+
+\subsubsection{IHDP simple learners with IPSW `Y|XT*IPSW(X)`}
 
 
 \section{Conclusions}
