@@ -17,6 +17,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{fullpage}
+\usepackage{ragged2e}
 %\usepackage[numbers]{natbib}
 \usepackage{minted}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -26,6 +27,7 @@
 \usepackage{placeins}
 \usepackage{tabularx}
 \usepackage{svg}
+\usepackage[normalem]{ulem}
 
 \usepackage[demo]{graphicx}
 \usepackage{caption}
@@ -77,8 +79,7 @@
 \tikzstyle{tRoundRect} = [rounded rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
 \tikzstyle{tRect} = [rectangle, draw=black, align=center, minimum width=3cm, minimum height=1cm, text centered]
 
-\title{%
-    Evaluated Effectiveness of Interventions for Individuals in Infelicitous Eventualities\\
+\title{Evaluated Effectiveness of Interventions for Individuals in Infelicitous Eventualities\\
     \large An attempt at solving a pair of Causal Inference problems.
 }
 \author{2100816}
@@ -119,6 +120,9 @@
 
 
 \begin{abstract}
+
+
+\sout{
 This document is the formal proposal document for a causal inference investigation
 into the the IHDP\cite{Gross1993} \cite{BROOKSGUNN1992350} and JOBS\cite{JOBS_LaLonde}\cite{JOBS2}\cite{ASMITH2005305} datasets.
 
@@ -131,10 +135,12 @@ shall be achieved.
 The preliminary investigation has identified some potential roadblocks for the latter parts of the
 investigation, which could pose a few barriers to the potential for meaningful conclusions to be
 reached, however, these are not insurmountable.
+}
 \end{abstract}
 
 
 \section{Introduction}
+
 
 This project involves two datasets: the Infant Health and Development Program (`IHDP`)\cite{Gross1993}\cite{BROOKSGUNN1992350}
 and `JOBS`\cite{JOBS_LaLonde}\cite{JOBS2}\cite{ASMITH2005305}.
@@ -146,6 +152,8 @@ and a `y` outcome for the individuals. The task I have been given for these data
 is to find the causal relationships within these datasets, to assess whether or not
 the treatments (`t`) given to the individuals have had any effect on the outcomes (`y`).
 
+
+\textcolor{red}{IGNORE THE REST OF THIS SECTION}
 
 As discussed by Hill and Stuart, 'Causal Inference' is the term used to refer to
 the overall task of investigating how a 'causal variable' may influence an 'outcome',
@@ -195,6 +203,8 @@ can successfully gain employment (especially when considering the employment out
 other, similar, individuals who were not receiving this additional support),
 this particular support, being unfit for purpose, would need to be replaced by a more
 effective intervention.
+
+
 
 \section{Data}
 
@@ -325,20 +335,13 @@ treat/not treat an individual for the best outcome based on their X features\cit
 
 \subsection{IHDP}
 
-
-
-\subsubsection{Simple Learners (`Y given XT`)}
+\subsubsection{Simple Learners (Y given XT)}
 
 \FloatBarrier
 
 The learner with the best R2 score was the `RandomForestRegressor`, with an R2 score on the test
 set of 0.70. As can be seen from Figure \ref{fig:ihdpSimple}, the features with the strongest
-impact on the outcome appear to be `t`, `x5`, and `x14`, in that order. Looking at Figure \ref{fig:ihdpSimpleB}, `t=0` has a somewhat negative
-impact on the outcome, dwarfed by the positive effect of `t=1`. `x5` has a less
-obvious boundary for when the impacts turn positive, however, higher `x5` results in a higher `y`,
-whilst a lower `x5` results in a somewhat lower `y`, but the negative effects are less dramatic than
-the positives. `x14` appears to have no/negligibly negative impact on `y` when `x14=0`\footnote{x14 is a binary value (only 0 or 1), so blue=0, red=1}, with potential for a slightly less negligible positive
-impact when `x14=1`.
+impact on the outcome appear to be `t`, `x5`, and `x14`, in that order.
 
 The lack of any influence from the other features is somewhat unexpected.
 
@@ -358,11 +361,18 @@ The lack of any influence from the other features is somewhat unexpected.
 \end{subfigure}
 \caption{Feature importances found by the IHDP Y|XT learner}
 \label{fig:ihdpSimple}
+\small
+Looking at Figure \ref{fig:ihdpSimpleB}, `t=0` has a somewhat negative
+impact on the outcome, dwarfed by the positive effect of `t=1`. `x5` has a less
+obvious boundary for when the impacts turn positive, however, higher `x5` results in a higher `y`,
+whilst a lower `x5` results in a somewhat lower `y`, but the negative effects are less dramatic than
+the positives. `x14` appears to have no/negligibly negative impact on `y` when `x14=0`. 
+(x14 is a binary value (only 0 or 1), so blue=0, red=1, with potential for a slightly less negligible positive impact when `x14=1`.)
 \end{figure}
 
 \FloatBarrier
 
-\subsubsection{IPSW learners (`T given X`)}
+\subsubsection{IPSW learners (T given X)}
 
 \FloatBarrier
 
@@ -407,10 +417,304 @@ eligible for inclusion in the treatment group in the `IHDP` study \cite{Gross199
 \FloatBarrier
 
 
-\subsubsection{IHDP simple learners with IPSW `Y|XT*IPSW(X)`}
+\subsubsection{IHDP simple learners with IPSW (Y given XT*IPSW(X))}
+
+\FloatBarrier
+
+Once again, the `RandomForestRegressor` had the best result (`r2` score of 0.70), and, once again,
+as shown in Figure \ref{fig:ihdpSimpleIPSW}, `t` is the most important feature, followed by `x5`,
+`x14` is questionably important\footnote{The estimator's 'feature\_importances\_' property gave it a somewhat positive result, but scikit-learn's 'permutation\_test' functionality gave it a mostly negative result, but the shapley values still indicate some significance}, and then everything else being almost entirely unimportant.
+
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp Random Forest simple with IPSW feature importances.pdf}
+  \caption{Feature importances (from feature\_importances\_ and permutation\_test) for IHDP simple+IPSW RandomForest}
+  \label{fig:ihdpSimpleIPSWA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp SHAP values for Random Forest simple with IPSW.pdf}
+  \caption{Shapley values for the features as found by the IHDP Y|XT*IPSW RandomForest predictor}
+  \label{fig:ihdpSimpleIPSWB}
+\end{subfigure}
+\caption{Feature importances found by the IHDP Y|XT*IPSW learner}
+\label{fig:ihdpSimpleIPSW}
+\justifying
+\small
+Seeing as the `T|X` predictor, shown in Figure \ref{fig:ihdpIPSW}, was used to help fit this predictor,
+I would have assumed that the importances of the inputs to `T` derived from that would have had some 
+tangible impact on this learner's importances, but their lack of an impact is somewhat concerning.
+This either suggests underfitting, the impacts of `T` effectively outweighing the impacts of the
+contributors to `T`, or both. The most probable explanation would likely be underfitting, as the
+other 'best' learners (being ARDRegressor, SGDRegressor, and Adaboosted versions of those and RandomForest) all had somewhat more complex importance/shapley graphs, yet lower `r2`
+scores (everything but the RandomForest/Adaboosted Random Forest having r2 scores around 0.5),
+implying that they overfit to the point of becoming less accurate than this underfit regressor.
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{IHDP CATE estimator}
+
+\FloatBarrier
+
+The best CATE estimator for `IHDP` was the `CausalForestDML` estimator, with a
+PEHE\footnote{error in Precision of Estimation of Heterogeneous Effect} value of 4.8.
+However, looking at the outputs of it, I suspect that the somewhat underfit models produced in the
+previous stage, used as inputs to this model, may have resulted in this model not being fitted correctly
+either, resulting in the unusual results visible in Figures \ref{fig:ihdpCATEcfA} and \ref{fig:ihdpCATEcf}.
+
+The shapley values for one of the other CATE models, which more closely resembles what one may have expected
+to see considering the inputs so far, can be seen in Figure \ref{fig:ihdpForestDRShap}, although that
+other model had an atrocious PEHE score, so that other model may be a case of garbage-in-garbage-out,
+with this model ultimately being more accurate overall.
+
+The unexpected shapley values could be due to this model finding out that x2 and x0 were confounders,
+however, as the inputs to this model were massively underfit, I cannot confidently assert that to be
+the case.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{project/assignment2/ihdp/ihdp SHAP values for Causal Forest.pdf}
+\caption{Shapley values for the features in IHDP Causal Forest DML}
+\label{fig:ihdpCATEcfA}
+\justifying
+\small
+These shapley values are somewhat unexpected, considering the lack of any resemblance they have
+to the shapley values for the earlier predictors, especially the sudden importance given to x2.
+The impacts of x2 are also somewhat unusual. It appears that higher x2 values have a strong negative
+effect on y, with very low x2 having a negligible positive effect, whilst x2 values in the middle appear
+to have somewhat positive effects on y. This same pattern of effects can also be seen in x5 (median
+values->slightly positive, extreme high/low->somewhat negative) and x1. 
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{1\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/Causal Forest CATE tree.pdf}
+  \caption{CATE interpreter tree for IHDP Causal Forest DML}
+  \label{fig:ihdpCATEcfB}
+\end{subfigure}
+\begin{subfigure}{1\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/ihdp/Causal Forest policy tree.pdf}
+  \caption{Policy interpreter tree for IHDP Causal Forest DML}
+  \label{fig:ihdpCATEcfC}
+\end{subfigure}
+\caption{Interpreter trees for the IHDP Causal Forest DML}
+\label{fig:ihdpCATEcf}
+\justifying
+\small
+These trees are interpretations of the inner workings of the Causal Forest DML CATE estimator (with these
+trees being constructed by \cite{shaptree}), and all give the impression of a rather optimistic outlook on
+how the treatment effects the individuals involved. Granted, looking at the raw data for IHDP, there are
+very few cases where an individual has a worse outcome for t=0 than t=1, so the policy illustrated in
+\ref{fig:ihdpCATEcfC} to always treat (only with the extent of the treatment benefit fluctuating) does
+make sense. This is also reflected in the CATE interpreter tree (\ref{fig:ihdpCATEcfB}), as, whilst there
+are a few outlier cases in the full dataset where the effect is negative, none of those samples are in
+the test set, therefore, once again, it's just the scale of the benefit that fluctuates.
+\end{figure}
+
+\FloatBarrier
+
+
+\subsection{JOBS}
+
+\subsubsection{Simple Learners (Y given XT)}
+
+\FloatBarrier
+
+The learner with the best `ROC AUC` score was the `SGDClassifier`, with an `ROC AUC` score on the test
+set of 0.76. As can be seen from Figure \ref{fig:jobsSimple}, the features with the strongest
+impact on the outcome appear to be `x6` and `x11`, then `x7` and `x12`, whilst `t` has a negligible
+importance.
+
+The lack of any influence from `t` is somewhat unexpected.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs sgd simple feature importances.pdf} 
+  \caption{Feature importances (from coeff\_ and permutation\_test) for JOBS simple sgdClassifier}
+  \label{fig:jobsSimpleA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs SHAP values for sgd simple.pdf}
+  \caption{Shapley values for the features as found by the JOBS Y|XT SGDClassifier}
+  \label{fig:jobsSimpleB}
+\end{subfigure}
+\caption{Feature importances found by the Jobs Y|XT learner}
+\label{fig:jobsSimple}
+\small
+Looking at Figure \ref{fig:jobsSimpleA}, `t` does not appear to have much of a bearing on the `y` outcome
+for an individual. This may be due to how few individuals in the population were included in the treatment
+group, and how many individuals ended up with `y=1` anyway.
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{IPSW learners (T given X)}
+
+\FloatBarrier
+
+The best estimator for `T|X` for `JOBS` was also the SGD classifier, with a
+`ROC AUC`\footnote{Receiver Operator Characteristic Area Under Curve} score of 0.62 on the test set.
+The feature importances of this classifier (Figure \ref{fig:jobsIPSW}) appear to be completely different 
+to the IHDP `Y|XT` classifier,
+with `x5` and `x14` having rather low importances, whilst several other features all compete to have
+the highest importance, with wildly fluctuating standard deviations for the importance predictions
+visible in Subfigure \ref{fig:jobsIPSWA}. 
+
+The shapley values (Subfigure \ref{fig:jobsIPSWB}) are somewhat more coherent;
+for all of the binary features, values of `0` and `1` have
+opposing impacts on the final `t` value\footnote{By this, I mean that 'for the ones where xN=0 has a negative effect, xN=1 has a positive effect, and vice versa'}. The continuous values are a bit more
+fuzzy in this regard, but they mostly follow this rule of 'bigger has opposite sign effect to smaller'.
+The only real exception is with `x3`; the high and slightly low values of `x3` have negative impacts,
+and only the particularly small `x3` values have a positive impact.
+
+The rather extreme effects of `x5` and `x4` on `t`, combined with the consistent direction of the impacts,
+indicates that `x5` and `x4` could potentially be related to an individual's eligibility to have been
+included in the treatment group (whether or not that it would have lead to the individual being treated
+is somewhat questionable). However, it's also possible that the other features where the high/low values
+for that feature were all present on the same side as each other could have been related to eligibility.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs SGD IPSW feature importances.pdf}
+  \caption{Feature importances (from feature\_importances\_ and permutation\_test) for JOBS IPSW SGD}
+  \label{fig:jobsIPSWA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs SHAP values for sgd IPSW.pdf}
+  \caption{Shapley values for the features as found by the IHDP T|X SGD predictor}
+  \label{fig:jobsIPSWB}
+\end{subfigure}
+\caption{Feature importances found by the JOBS T|X learner}
+\label{fig:jobsIPSW}
+\end{figure}
+
+\FloatBarrier
+
+
+\subsubsection{JOBS simple learners with IPSW (Y given XT*IPSW(X))}
+
+\FloatBarrier
+
+Once again, the `RandomForestRegressor` had the best result (`r2` score of 0.70), and, once again,
+as shown in Figure \ref{fig:jobsSimpleIPSW}, `t` is the most important feature, followed by `x5`,
+`x14` is questionably important\footnote{The estimator's 'feature\_importances\_' property gave it a somewhat positive result, but scikit-learn's 'permutation\_test' functionality gave it a mostly negative result, but the shapley values still indicate some significance}, and then everything else being almost entirely unimportant.
+
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs sgd simple with IPSW feature importances.pdf}
+  \caption{Feature importances (from feature\_importances\_ and permutation\_test) for JOBS simple+IPSW SGD}
+  \label{fig:jobsSimpleIPSWA}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs sgd SHAP values for Random Forest simple with IPSW.pdf}
+  \caption{Shapley values for the features as found by the JOBS Y|XT*IPSW SGD predictor}
+  \label{fig:jobsSimpleIPSWB}
+\end{subfigure}
+\caption{Feature importances found by the JOBS Y|XT*IPSW learner}
+\label{fig:jobsSimpleIPSW}
+\justifying
+\small
+Seeing as the `T|X` predictor, shown in Figure \ref{fig:jobsIPSW}, was used to help fit this predictor,
+I would have assumed that the importances of the inputs to `T` derived from that would have had some 
+tangible impact on this learner's importances, but their lack of an impact is somewhat concerning.
+This either suggests underfitting, the impacts of `T` effectively outweighing the impacts of the
+contributors to `T`, or both. The most probable explanation would likely be underfitting, as the
+other 'best' learners (being ARDRegressor, SGDRegressor, and Adaboosted versions of those and RandomForest) all had somewhat more complex importance/shapley graphs, yet lower `r2`
+scores (everything but the RandomForest/Adaboosted Random Forest having r2 scores around 0.5),
+implying that they overfit to the point of becoming less accurate than this underfit regressor.
+\end{figure}
+
+\FloatBarrier
+
+\subsubsection{JOBS CATE estimator}
+
+\FloatBarrier
+
+The best CATE estimator for `IHDP` was the `CausalForestDML` estimator, with a
+PEHE\footnote{error in Precision of Estimation of Heterogeneous Effect} value of 4.8.
+However, looking at the outputs of it, I suspect that the somewhat underfit models produced in the
+previous stage, used as inputs to this model, may have resulted in this model not being fitted correctly
+either, resulting in the unusual results visible in Figures \ref{fig:jobsCATEcfA} and \ref{fig:jobsCATEcf}.
+
+The shapley values for one of the other CATE models, which more closely resembles what one may have expected
+to see considering the inputs so far, can be seen in Figure \ref{fig:jobsForestDRShap}, although that
+other model had an atrocious PEHE score, so that other model may be a case of garbage-in-garbage-out,
+with this model ultimately being more accurate overall.
+
+The unexpected shapley values could be due to this model finding out that x2 and x0 were confounders,
+however, as the inputs to this model were massively underfit, I cannot confidently assert that to be
+the case.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1\linewidth]{project/assignment2/jobs/jobs SHAP values for Causal Forest.pdf}
+\caption{Shapley values for the features in JOBS Causal Forest DML}
+\label{fig:jobsCATEcfA}
+\justifying
+\small
+These shapley values are somewhat unexpected, considering the lack of any resemblance they have
+to the shapley values for the earlier predictors, especially the sudden importance given to x2.
+The impacts of x2 are also somewhat unusual. It appears that higher x2 values have a strong negative
+effect on y, with very low x2 having a negligible positive effect, whilst x2 values in the middle appear
+to have somewhat positive effects on y. This same pattern of effects can also be seen in x5 (median
+values->slightly positive, extreme high/low->somewhat negative) and x1. 
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{1\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/Causal Forest CATE tree.pdf}
+  \caption{CATE interpreter tree for JOBS Causal Forest DML}
+  \label{fig:jobsCATEcfB}
+\end{subfigure}
+\begin{subfigure}{1\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{project/assignment2/jobs/Causal Forest policy tree.pdf}
+  \caption{Policy interpreter tree for JOBS Causal Forest DML}
+  \label{fig:jobsCATEcfC}
+\end{subfigure}
+\caption{Interpreter trees for the JOBS Causal Forest DML}
+\label{fig:jobsCATEcf}
+\justifying
+\small
+These trees are interpretations of the inner workings of the Causal Forest DML CATE estimator (with these
+trees being constructed by \cite{shaptree}), and all give the impression of a rather optimistic outlook on
+how the treatment effects the individuals involved. Granted, looking at the raw data for IHDP, there are
+very few cases where an individual has a worse outcome for t=0 than t=1, so the policy illustrated in
+\ref{fig:jobsCATEcfC} to always treat (only with the extent of the treatment benefit fluctuating) does
+make sense. This is also reflected in the CATE interpreter tree (\ref{fig:jobsCATEcfB}), as, whilst there
+are a few outlier cases in the full dataset where the effect is negative, none of those samples are in
+the test set, therefore, once again, it's just the scale of the benefit that fluctuates.
+\end{figure}
+
+\FloatBarrier
 
 
 \section{Conclusions}
+
+
+This project has not been a success. The investigation on IHDP did not produce any meaningful results,
+due to 
+
+
 
 This project seems somewhat feasible. The `IHDP` dataset looks like it is less likely to cause
 problems later on, as, due to it containing data for individual treatment effects and
@@ -454,88 +758,50 @@ within any future analysis of these datasets.
 
 
 \appendix
-\section{Appendix: The visualizations of the datasets}\label{appendix:graphs}
+\section{Appendix: Further visualizations of note}\label{appendix:graphs}
 
-These figures are located in this appendix simply because they're too large for \LaTeX to neatly
-insert them within the main content of this report in a location that makes sense.
+These are some supplementary figures, not intended to replace the main content,
+but merely to supplement them.
 
-\subsection{IHDP dataset visualizations}
+\subsection{IHDP CATE}
 
-
-Here are the graphs for the IHDP dataset.
-
-\FloatBarrier
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{project/data/ihdp_graphs.pdf}
-    \caption{
-        \label{fig:ihdpgraphs}Several graphs for the IHDP dataset, including counterfactuals
-    }
-\end{figure}
-
-These graphs show how the \texttt{ite} values (along with \texttt{t0} and \texttt{t1})
-vary for each individual, based on the value of each \texttt{x} variable for each individual. \texttt{t0}, \texttt{t1}, and \texttt{ite} are based on known counterfactual
-data (end result being that \texttt{t0} contains the \texttt{y} value for the case where
-the individual was in the control group, and vice versa for \texttt{t1}).
-
-Looking at the density/regression plot between \texttt{t0} and \texttt{t1}, 
-we can see a general improvement in the \texttt{y} scores for the population when
-receiving the treatment, with few individuals falling below the \texttt{y=x diagonal}
-line (these individuals being those who had a negative \texttt{ite}).
-
-We can see a somewhat clear negative correlation between \texttt{x5} and \texttt{ite},
-and we can also see that, for several of the binary-valued \texttt{x} values,
-there is a rather large imbalance in the quantities of individuals in the dataset
-who have each value, which could limit the amount of useful information we could
-potentially gain from these variables.
-
-\FloatBarrier
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{project/data/ihdp_factuals.pdf}
-    \caption{
-        \label{fig:ihdpfact}Graphs for the factual data in IHDP
-    }
-
-\end{figure}
-
-These graphs are of the factual data (\texttt{yf}) within the IHDP dataset.
-These do illustrate the general positive correlation between individuals receiving
-treatment and having a higher \texttt{yf} value, but also shows how imbalanced
-this dataset is (most notably with \texttt{x17}, where only 27 individuals have
-\texttt{x17==0}.
-        
-These graphs clearly illustrate that the treated individuals generally have higher
-\texttt{yf} values than their untreated peers, with roughly similar interquartile
-ranges for treatment/control groups with different values for each binary
-\texttt{x} value (even in the extremely unbalanced cases).
-
-\FloatBarrier
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{project/data/ihdp_counterfactuals.pdf}
-    \caption{\label{fig:ihdpcf}Graphs for the counterfactual data in IHDP}
-\end{figure}
-
-\FloatBarrier
-
-\subsection{JOBS dataset visualizations}
-
-
-Here are the graphs for the JOBS dataset.
 
 \FloatBarrier
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=1\textwidth]{project/data/jobs_graphs.pdf}
-\caption{\label{fig:jobsgraphs}Several graphs for the JOBS dataset}
+    \includegraphics[width=1\textwidth]{project/assignment2/ihdp/ihdp SHAP values for Forest DR Learner.pdf}
+    \caption{
+        \label{fig:ihdpForestDRShap}Shapley values for the IHDP ForestDR CATE estimator
+    }
+\justifying
+\small
+These shapley values for the ForestDR learner appear to more closely resemble what one would
+anticipate to see from the CATE estimators for IHDP, considering the inputs found along the way,
+significantly moreso than the CausalForestDML results, visible in Figure \ref{fig:ihdpCATEcf}
+Considering the fact that the Y estimators (somewhat illustrated by Figures  \ref{fig:ihdpSimple} and \ref{fig:ihdpSimpleIPSW}) granted some semblance of importance to x14, it makes sense that it might be
+seen as having some potentially drastic impact on the predictions made by this estimator, which uses
+those estimators as part of its inputs. Additionally, x5 (also identified as important by those predictors) is also shown as having relatively high importance. Furthermore, x3 (indicated as a
+key contributor towards `t` by the estimator illustrated in Figure \ref{fig:ihdpIPSW}) is also
+shown as being rather important in this estimator, as expected.
+
+However, in practice, these shapley values are from an estimator with a PEHE (Precision of Estimation
+of Heterogeneous Treatment Effects) value of 68332.93913561162.
+
+PEHE is supposed to be minimized.
+
+Which is another way of saying 'these shapley values are utterly incorrect in practice'. This either
+means that the learner itself was poorly fitted (garbage-in-garbage-out), or it could mean that
+there was a rather large unknown confounder interfering with the outputs of this learner, but,
+considering the rather underfit learners which lead up to this point, it is most likely the former
+(garbage-in-garbage-out), not the latter.
+
 \end{figure}
 
+
 \FloatBarrier
+
+
 
 \quoteOFF
 \printbibliography
