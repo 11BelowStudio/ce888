@@ -3,10 +3,10 @@
 Hello
 
 Long story short, this is a repository for the CE888 *Data Science and Decision-Making*
-module I'm just starting as of the time of writing.
+module I've just finished (probably) as of the time of writing.
 
-There's nothing much here to look at (like, at all), but that might change
-eventually.
+There are a few things to look at here, none of which is likely to be of much interest
+to you unless you're contractually obligated to be here.
 
 Probably.
 
